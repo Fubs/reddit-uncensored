@@ -1,6 +1,5 @@
 import { MsgTypeEnum } from './background.js'
 import DOMPurify from 'dompurify'
-
 ;(function () {
   'use strict'
 

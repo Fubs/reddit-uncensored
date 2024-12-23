@@ -310,6 +310,7 @@ import { MsgTypeEnum } from './background.js'
 
     containerNode.replaceWith(newContent)
   }
+
   /**
    * @param {HTMLElement} postNode
    * @param {string} postAuthorText
