@@ -1,5 +1,6 @@
 import { MsgTypeEnum } from './background.js'
 import DOMPurify from 'dompurify'
+
 ;(function () {
   'use strict'
 
@@ -529,8 +530,8 @@ import DOMPurify from 'dompurify'
       postNode.hasAttribute('arctic-shift-cached-id')
         ? postNode.getAttribute('arctic-shift-cached-id')
         : postNode.id !== 'undefined'
-        ? postNode.id
-        : Math.random().toString(),
+          ? postNode.id
+          : Math.random().toString(),
     ).toString()
 
     let replaceTarget
@@ -661,12 +662,15 @@ import DOMPurify from 'dompurify'
         lastRan = Date.now()
       } else {
         clearTimeout(lastFunc)
-        lastFunc = setTimeout(() => {
-          if (Date.now() - lastRan >= limit) {
-            func.apply(this, args)
-            lastRan = Date.now()
-          }
-        }, limit - (Date.now() - lastRan))
+        lastFunc = setTimeout(
+          () => {
+            if (Date.now() - lastRan >= limit) {
+              func.apply(this, args)
+              lastRan = Date.now()
+            }
+          },
+          limit - (Date.now() - lastRan),
+        )
       }
     }
   }
@@ -891,8 +895,8 @@ import DOMPurify from 'dompurify'
         const selftext = response.postData[0]['selftext_html']
           ? response.postData[0]['selftext_html']
           : response.postData[0]['selftext'] === ''
-          ? "<div class='md'>[deleted]</div>"
-          : undefined
+            ? "<div class='md'>[deleted]</div>"
+            : undefined
 
         updatePostNode(postNode, author, selftext, title)
       } else {

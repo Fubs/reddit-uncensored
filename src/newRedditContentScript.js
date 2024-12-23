@@ -292,8 +292,13 @@ import { MsgTypeEnum } from './background.js'
     const correctHtmlStr = htmlContent ? htmlContent : '<div slot="text-body">[deleted]</div>'
     const parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
 
+    // Create new content container
     const newContent = document.createElement('div')
-    newContent.innerHTML = parsedHtml.body.innerHTML
+
+    // Instead of using innerHTML, append the parsed nodes
+    while (parsedHtml.body.firstChild) {
+      newContent.appendChild(parsedHtml.body.firstChild)
+    }
 
     applyStyles(newContent, {
       outline: 'salmon solid',
@@ -305,7 +310,6 @@ import { MsgTypeEnum } from './background.js'
 
     containerNode.replaceWith(newContent)
   }
-
   /**
    * @param {HTMLElement} postNode
    * @param {string} postAuthorText
@@ -666,8 +670,8 @@ import { MsgTypeEnum } from './background.js'
         const selftext = response.postData[0]['selftext_html']
           ? response.postData[0]['selftext_html']
           : response.postData[0]['selftext'] === ''
-          ? "<div class='md'>[deleted]</div>"
-          : undefined
+            ? "<div class='md'>[deleted]</div>"
+            : undefined
 
         updatePostNode(postNode, author, selftext, title)
       } else {
