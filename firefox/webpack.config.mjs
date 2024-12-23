@@ -22,7 +22,7 @@ const config = {
     new CopyWebpackPlugin({
       patterns: [
         { from: "./manifest.json", to: "manifest.json" },
-        { from: path.resolve(__dirname, "../assets/icons"), to: "icons" },
+        { from: path.resolve(__dirname, "../assets/icons/*.png"), to: "icons" },
         {
           from: path.resolve(__dirname, "../assets/icons/favicon.ico"),
           to: "favicon.ico",

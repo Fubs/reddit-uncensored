@@ -7,16 +7,16 @@
     "https://arctic-shift.photon-reddit.com/*"
   ],
   "icons": {
-    "256": "icons/icon_256.png",
-    "192": "icons/icon_192.png",
-    "144": "icons/icon_144.png",
-    "128": "icons/icon_128.png",
-    "96": "icons/icon_96.png",
-    "72": "icons/icon_72.png",
-    "64": "icons/icon_64.png",
-    "48": "icons/icon_48.png",
-    "32": "icons/icon_32.png",
-    "16": "icons/icon_16.png"
+    "256": "assets/icons/icon_256.png",
+    "192": "assets/icons/icon_192.png",
+    "144": "assets/icons/icon_144.png",
+    "128": "assets/icons/icon_128.png",
+    "96": "assets/icons/icon_96.png",
+    "72": "assets/icons/icon_72.png",
+    "64": "assets/icons/icon_64.png",
+    "48": "assets/icons/icon_48.png",
+    "32": "assets/icons/icon_32.png",
+    "16": "assets/icons/icon_16.png"
   },
   "background": {
     "scripts": [
