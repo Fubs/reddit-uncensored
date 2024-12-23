@@ -1,0 +1,15 @@
+attic/
+
+node_modules/
+
+firefox/node_modules/
+firefox/web-ext-artifacts/
+firefox/dist
+
+chrome/node_modules/
+chrome/dist
+chrome/dist.pem
+chrome/dist.crx
+
+# ignore all . folders but include . files
+.*/

@@ -1,0 +1,15 @@
+{
+  "name": "reddit-arctic-shift-integration",
+  "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "webpack --mode=development --config webpack.config.mjs",
+    "build": "webpack --mode=production --config webpack.config.mjs",
+    "format": "prettier --write --ignore-unknown \"src/*.{html,css,js,mjs,ts,json}\"",
+    "clean": "rm -rf dist/* web-ext-artifacts/*",
+    "lint": "web-ext lint -s src",
+    "pack": "web-ext build -s dist --overwrite-dest"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Reddit Arctic Shift Integration",
+  "version": "0.0.1",
+  "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
+  "host_permissions": [
+    "https://arctic-shift.photon-reddit.com/*"
+  ],
+  "icons": {
+    "256": "icons/icon_256.png",
+    "192": "icons/icon_192.png",
+    "144": "icons/icon_144.png",
+    "128": "icons/icon_128.png",
+    "96": "icons/icon_96.png",
+    "72": "icons/icon_72.png",
+    "64": "icons/icon_64.png",
+    "48": "icons/icon_48.png",
+    "32": "icons/icon_32.png",
+    "16": "icons/icon_16.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.reddit.com/r/*/comments/*"
+      ],
+      "js": [
+        "newRedditContentScript.js"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://old.reddit.com/r/*/comments/*"
+      ],
+      "js": [
+        "oldRedditContentScript.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}
