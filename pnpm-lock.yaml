@@ -40,73 +40,9 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
 
-  chrome:
-    dependencies:
-      dompurify:
-        specifier: ^3.1.7
-        version: 3.2.3
-    devDependencies:
-      adm-zip:
-        specifier: ^0.5.16
-        version: 0.5.16
-      copy-webpack-plugin:
-        specifier: ^10.2.4
-        version: 12.0.2(webpack@5.97.1)
-      css-loader:
-        specifier: ^6.11.0
-        version: 7.1.2(webpack@5.97.1)
-      file-loader:
-        specifier: ^6.2.0
-        version: 6.2.0(webpack@5.97.1)
-      mini-css-extract-plugin:
-        specifier: ^2.9.1
-        version: 2.9.2(webpack@5.97.1)
-      prettier:
-        specifier: ^2.8.8
-        version: 3.4.2
-      webpack:
-        specifier: ^5.95.0
-        version: 5.97.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^4.10.0
-        version: 6.0.1(webpack@5.97.1)
-      webpack-merge:
-        specifier: ^5.10.0
-        version: 6.0.1
+  chrome: {}
 
-  firefox:
-    dependencies:
-      dompurify:
-        specifier: ^3.1.7
-        version: 3.2.3
-    devDependencies:
-      adm-zip:
-        specifier: ^0.5.16
-        version: 0.5.16
-      copy-webpack-plugin:
-        specifier: ^10.2.4
-        version: 12.0.2(webpack@5.97.1)
-      css-loader:
-        specifier: ^6.11.0
-        version: 7.1.2(webpack@5.97.1)
-      file-loader:
-        specifier: ^6.2.0
-        version: 6.2.0(webpack@5.97.1)
-      mini-css-extract-plugin:
-        specifier: ^2.9.1
-        version: 2.9.2(webpack@5.97.1)
-      prettier:
-        specifier: ^2.8.8
-        version: 3.4.2
-      webpack:
-        specifier: ^5.95.0
-        version: 5.97.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^4.10.0
-        version: 6.0.1(webpack@5.97.1)
-      webpack-merge:
-        specifier: ^5.10.0
-        version: 6.0.1
+  firefox: {}
 
 packages:
 

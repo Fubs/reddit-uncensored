@@ -10,6 +10,8 @@
     "build:chrome": "pnpm --filter ./chrome run build",
     "clean:firefox": "pnpm --filter ./firefox run clean",
     "clean:chrome": "pnpm --filter ./chrome run clean",
+    "pack:firefox": "pnpm --filter ./firefox run pack",
+    "pack:chrome": "pnpm --filter ./chrome run pack",
     "clean": "pnpm run --parallel -r clean",
     "format": "pnpm run --parallel -r format",
     "build": "pnpm run --parallel -r build",
