@@ -18,8 +18,9 @@ Some posts and comments are deleted before they can be archived by Arctic Shift.
 
 Some comments which are visible on old reddit cannot be seen on new reddit. Depending on why a comment is deleted, new Reddit will show a comment as "Comment removed by moderator", "Comment deleted by user", or it will not show the comment
 at all. This extension works by getting the IDs of deleted posts and comments from the HTML. Comments which have been deleted but are still visible on the page will have a comment IDs retreivable from the HTML, but comments which are
-completely
-hidden do not have a comment ID that can be retreived.
+completely hidden do not have a comment ID that can be retreived.
+
+Arctic Shift stores a comment tree that could be used to find any hidden comments, but I have not yet implemented that functionality in this extension. I plan on adding that in a future version.
 
 ## Installing from Chrome Web Store, Firefox Add-on Store, or Edge Web Store
 
