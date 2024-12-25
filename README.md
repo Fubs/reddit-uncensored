@@ -22,9 +22,12 @@ completely hidden do not have a comment ID that can be retreived.
 
 Arctic Shift stores a comment tree that could be used to find any hidden comments, but I have not yet implemented that functionality in this extension. I plan on adding that in a future version.
 
-## Installing from Chrome Web Store, Firefox Add-on Store, or Edge Web Store
+## Install from Chrome Web Store, Firefox Add-on Store, or Edge Web Store
 
-The extension is currently being reviewed by the Chrome and Firefox web stores and will be available soon.
+<ul>
+<li>Firefox: <a rel="nofollow" href="https://addons.mozilla.org/en-US/android/addon/reddit-uncensored/">https://addons.mozilla.org/en-US/android/addon/reddit-uncensored/</a></li>
+
+I've submitted the extension to the Chrome and Edge web stores, and I will add links here when it gets approved.
 
 ## Bug Reports
 
