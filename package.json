@@ -1,5 +1,5 @@
 {
-  "name": "reddit-arctic-shift-integration",
+  "name": "reddit-uncensored",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
   "version": "1.0.0",
   "private": true,
