@@ -25,7 +25,7 @@ Arctic Shift stores a comment tree that could be used to find any hidden comment
 ## Install from Chrome Web Store, Firefox Add-on Store, or Edge Web Store
 
 <ul>
-<li>Firefox: <a rel="nofollow" href="https://addons.mozilla.org/en-US/android/addon/reddit-uncensored/">https://addons.mozilla.org/en-US/android/addon/reddit-uncensored/</a></li>
+<li>Firefox: <a rel="nofollow" href="https://addons.mozilla.org/en-US/android/addon/reddit-uncensored/">https://addons.mozilla.org/en-US/Firefox/addon/reddit-uncensored/</a></li>
 </ul>
 
 I've submitted the extension to the Chrome and Edge web stores, and I will add links here when it gets approved.
