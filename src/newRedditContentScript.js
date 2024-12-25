@@ -24,9 +24,13 @@ import { MsgTypeEnum } from './background.js'
     '[deleted by user]',
     '[removed]',
     '[ Removed by Reddit ]',
-    'Removed by Reddit',
     'Comment removed by moderator',
     'Comment deleted by user',
+    'Comment removed by Reddit',
+    'Comment removed',
+    'Deleted by user',
+    'Removed by moderator',
+    'Removed by Reddit',
   ])
 
   /**
