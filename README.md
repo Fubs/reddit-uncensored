@@ -2,7 +2,7 @@
     <img src="assets/icons/icon_256.png" alt="shared/icons/icon_256.png">
 </p>
 
-# Reddit Arctic Shift Integration
+# Reddit Uncensored
 
 <b>Restore deleted posts and comments on Reddit using the [Arctic Shift API](https://github.com/ArthurHeitmann/arctic_shift/)</b>
 
