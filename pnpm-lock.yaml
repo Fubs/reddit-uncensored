@@ -43,79 +43,9 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
 
-  chrome:
-    dependencies:
-      dompurify:
-        specifier: ^3.2.3
-        version: 3.2.3
-    devDependencies:
-      adm-zip:
-        specifier: ^0.5.16
-        version: 0.5.16
-      copy-webpack-plugin:
-        specifier: ^12.0.2
-        version: 12.0.2(webpack@5.97.1)
-      css-loader:
-        specifier: ^7.1.2
-        version: 7.1.2(webpack@5.97.1)
-      dotenv-webpack:
-        specifier: ^8.1.0
-        version: 8.1.0(webpack@5.97.1)
-      file-loader:
-        specifier: ^6.2.0
-        version: 6.2.0(webpack@5.97.1)
-      mini-css-extract-plugin:
-        specifier: ^2.9.2
-        version: 2.9.2(webpack@5.97.1)
-      prettier:
-        specifier: ^3.4.2
-        version: 3.4.2
-      webpack:
-        specifier: ^5.97.1
-        version: 5.97.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^6.0.1
-        version: 6.0.1(webpack@5.97.1)
-      webpack-merge:
-        specifier: ^6.0.1
-        version: 6.0.1
+  chrome: {}
 
-  firefox:
-    dependencies:
-      dompurify:
-        specifier: ^3.2.3
-        version: 3.2.3
-    devDependencies:
-      adm-zip:
-        specifier: ^0.5.16
-        version: 0.5.16
-      copy-webpack-plugin:
-        specifier: ^12.0.2
-        version: 12.0.2(webpack@5.97.1)
-      css-loader:
-        specifier: ^7.1.2
-        version: 7.1.2(webpack@5.97.1)
-      dotenv-webpack:
-        specifier: ^8.1.0
-        version: 8.1.0(webpack@5.97.1)
-      file-loader:
-        specifier: ^6.2.0
-        version: 6.2.0(webpack@5.97.1)
-      mini-css-extract-plugin:
-        specifier: ^2.9.2
-        version: 2.9.2(webpack@5.97.1)
-      prettier:
-        specifier: ^3.4.2
-        version: 3.4.2
-      webpack:
-        specifier: ^5.97.1
-        version: 5.97.1(webpack-cli@6.0.1)
-      webpack-cli:
-        specifier: ^6.0.1
-        version: 6.0.1(webpack@5.97.1)
-      webpack-merge:
-        specifier: ^6.0.1
-        version: 6.0.1
+  firefox: {}
 
 packages:
 

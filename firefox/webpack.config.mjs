@@ -3,8 +3,8 @@ import Dotenv from 'dotenv-webpack'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url) // get the resolved path to the file
-const __dirname = path.dirname(__filename) // get the name of the directory
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const config = {
   entry: {
@@ -34,6 +34,9 @@ const config = {
     }),
     new Dotenv({ path: './.env' }),
   ],
+  resolve: {
+    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
+  },
 }
 
 export default config

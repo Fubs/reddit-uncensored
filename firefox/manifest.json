@@ -3,12 +3,8 @@
   "name": "Reddit Uncensored",
   "version": "0.0.3",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
-  "permissions": [
-    "storage"
-  ],
-  "host_permissions": [
-    "https://arctic-shift.photon-reddit.com/*"
-  ],
+  "permissions": ["storage"],
+  "host_permissions": ["https://arctic-shift.photon-reddit.com/*"],
   "icons": {
     "256": "assets/icons/icon_256.png",
     "192": "assets/icons/icon_192.png",
@@ -22,28 +18,18 @@
     "16": "assets/icons/icon_16.png"
   },
   "background": {
-    "scripts": [
-      "background.js"
-    ],
+    "scripts": ["background.js"],
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://www.reddit.com/r/*/comments/*"
-      ],
-      "js": [
-        "newRedditContentScript.js"
-      ],
+      "matches": ["https://www.reddit.com/r/*/comments/*"],
+      "js": ["newRedditContentScript.js"],
       "run_at": "document_end"
     },
     {
-      "matches": [
-        "https://old.reddit.com/r/*/comments/*"
-      ],
-      "js": [
-        "oldRedditContentScript.js"
-      ],
+      "matches": ["https://old.reddit.com/r/*/comments/*"],
+      "js": ["oldRedditContentScript.js"],
       "run_at": "document_end"
     }
   ],

@@ -16,7 +16,7 @@
     "lint": "pnpm run lint:firefox",
     "version": "dev_scripts/update_version.sh",
     "clean": "pnpm run --parallel -r clean",
-    "format": "pnpm run --parallel -r format",
+    "format": "prettier --write --ignore-unknown \"{,!(node_modules)/**/}*.{html,css,js,mjs,ts,json}\"",
     "build": "pnpm run --parallel -r build",
     "pack": "pnpm run --parallel -r pack",
     "all": "pnpm run clean && pnpm run format && pnpm run build && pnpm run pack"
