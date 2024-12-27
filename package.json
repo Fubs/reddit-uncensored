@@ -22,19 +22,19 @@
     "all": "pnpm run clean && pnpm run format && pnpm run build && pnpm run pack"
   },
   "devDependencies": {
-    "adm-zip": "^0.5.16",
-    "copy-webpack-plugin": "^12.0.2",
-    "css-loader": "^7.1.2",
-    "dotenv-webpack": "^8.1.0",
-    "file-loader": "^6.2.0",
-    "mini-css-extract-plugin": "^2.9.2",
-    "prettier": "^3.4.2",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1",
-    "webpack-merge": "^6.0.1"
+    "adm-zip": "catalog:",
+    "copy-webpack-plugin": "catalog:",
+    "css-loader": "catalog:",
+    "dotenv-webpack": "catalog:",
+    "file-loader": "catalog:",
+    "mini-css-extract-plugin": "catalog:",
+    "prettier": "catalog:",
+    "webpack": "catalog:",
+    "webpack-cli": "catalog:",
+    "webpack-merge": "catalog:"
   },
   "dependencies": {
-    "dompurify": "^3.2.3"
+    "dompurify": "catalog:"
   },
-  "packageManager": "pnpm@9.15.1"
+  "packageManager": "pnpm@9.15.2"
 }
