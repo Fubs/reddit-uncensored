@@ -6,8 +6,16 @@ import { MsgTypeEnum } from './background.js'
   let fetchTimer = null
 
   const idToCommentNode = new Map()
+  const idToUsertextNode = new Map()
   const scheduledCommentIds = new Set()
   const processedCommentIds = new Set()
+
+  let shouldAutoExpand = true
+
+  // Load settings
+  chrome.storage.local.get(['expandCollapsedComments'], result => {
+    shouldAutoExpand = result.expandCollapsedComments ?? true
+  })
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -24,13 +32,15 @@ import { MsgTypeEnum } from './background.js'
     '[deleted by user]',
     '[removed]',
     '[ Removed by Reddit ]',
+    'Comment removed',
+    'Comment deleted',
     'Comment removed by moderator',
     'Comment deleted by user',
     'Comment removed by Reddit',
-    'Comment removed',
     'Deleted by user',
     'Removed by moderator',
     'Removed by Reddit',
+    'Loading from archive...',
   ])
 
   /**
@@ -47,9 +57,35 @@ import { MsgTypeEnum } from './background.js'
    * @param {Element} commentNode
    */
   function expandCommentNode(commentNode) {
+    if (!shouldAutoExpand && commentNode.hasAttribute('collapsed')) {
+      // Don't auto-expand if setting is disabled
+      return false
+    }
+
     commentNode.removeAttribute('collapsed')
     commentNode.classList.remove('collapsed')
-    commentNode.classList.add('expanded-by-arctic-shift-extension')
+    commentNode.classList.add('expanded-by-reddit-uncensored-extension')
+    return true
+  }
+
+  // Add new observer for manual expansions
+  function observeManualExpansions() {
+    if (shouldAutoExpand) return // Don't need this when auto-expanding
+
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.target.nodeName === 'SHREDDIT-COMMENT' && !mutation.target.hasAttribute('collapsed')) {
+          // Comment was manually expanded
+          processCommentNode(mutation.target)
+        }
+      })
+    })
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['collapsed'],
+      subtree: true,
+    })
   }
 
   /**
@@ -128,6 +164,15 @@ import { MsgTypeEnum } from './background.js'
   }
 
   /**
+   * Finds the usertextnode of a comment
+   * @param {HTMLElement} commentNode
+   * @returns {HTMLElement}
+   */
+  function getCommentUsertextNode(commentNode) {
+    return commentNode.querySelector('div.md > div.inline-block > p')
+  }
+
+  /**
    * Determines which fields of a post are missing
    * @param {HTMLElement} postNode
    * @returns {Set<string>}
@@ -157,7 +202,7 @@ import { MsgTypeEnum } from './background.js'
     if (commentNode.hasAttribute('deleted') || commentNode.getAttribute('is-comment-deleted') === 'true') {
       return true
     } else {
-      const usertextNode = commentNode.querySelector('div.md > div.inline-block > p')
+      const usertextNode = getCommentUsertextNode(commentNode)
       if (usertextNode) {
         return DELETED_TEXT.has(usertextNode.textContent)
       }
@@ -237,6 +282,34 @@ import { MsgTypeEnum } from './background.js'
   }
 
   /**
+   * Replace a comment with some text to indicate that it is loading
+   * @param {string} commentId
+   */
+  function showLoadingIndicator(commentId) {
+    if (!idToUsertextNode.has(commentId)) return
+    const usertextNode = idToUsertextNode.get(commentId)
+
+    if (usertextNode) {
+      const loadingDiv = document.createElement('div')
+      loadingDiv.className = 'md loading-indicator'
+      const loadingInlineBlock = document.createElement('div')
+      loadingInlineBlock.className = 'inline-block'
+      loadingDiv.appendChild(loadingInlineBlock)
+      const loadingP = document.createElement('p')
+      loadingP.textContent = 'Loading from archive...'
+      applyStyles(loadingP, {
+        color: '#666',
+        fontStyle: 'italic',
+      })
+      loadingInlineBlock.appendChild(loadingP)
+      const container = usertextNode.closest('div.md')
+      if (container) {
+        container.replaceWith(loadingDiv)
+      }
+    }
+  }
+
+  /**
    * Finds the id of a comment
    * @param {HTMLElement} commentNode
    * @returns {string}
@@ -273,13 +346,13 @@ import { MsgTypeEnum } from './background.js'
   function replaceAuthorNode(authorNode, author) {
     let newAuthorElement
 
-    if (DELETED_TEXT.has(author)) {
+    if (!DELETED_TEXT.has(author)) {
       newAuthorElement = document.createElement('a')
       newAuthorElement.href = `https://www.reddit.com/u/${author}/`
       newAuthorElement.textContent = author
     } else {
       newAuthorElement = document.createElement('span')
-      newAuthorElement.textContent = author
+      newAuthorElement.textContent = '[not found in archive]'
     }
 
     applyStyles(newAuthorElement, { color: 'salmon' })
@@ -293,8 +366,16 @@ import { MsgTypeEnum } from './background.js'
    */
   function replaceContentBody(containerNode, htmlContent, styles = {}) {
     const parser = new DOMParser()
-    const correctHtmlStr = htmlContent ? htmlContent : '<div slot="text-body">[deleted]</div>'
-    const parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
+    const correctHtmlStr = htmlContent ? htmlContent : '<div slot="text-body">[not found in archive]</div>'
+    let parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
+    if (
+      parsedHtml &&
+      parsedHtml.body &&
+      parsedHtml.body.textContent &&
+      DELETED_TEXT.has(parsedHtml.body.textContent.trim())
+    ) {
+      parsedHtml = parser.parseFromString('<div class="md"><p>[not found in archive]</p></div>', 'text/html')
+    }
 
     const newContent = document.createElement('div')
     while (parsedHtml.body.firstChild) {
@@ -434,7 +515,7 @@ import { MsgTypeEnum } from './background.js'
       USE_PROFILES: { html: true },
     })
     if (!usertext) return
-    const usertextNode = commentNode.querySelector('div.md > div.inline-block > p')
+    const usertextNode = getCommentUsertextNode(commentNode)
     if (!usertextNode) return
 
     const usertextContainer = usertextNode.parentElement.parentElement
@@ -497,22 +578,36 @@ import { MsgTypeEnum } from './background.js'
     const commentId = getCommentId(commentNode)
     if (!commentId) return
 
+    if (!idToCommentNode.has(commentId)) {
+      idToCommentNode.set(commentId, commentNode)
+    }
+
+    if (!idToUsertextNode.has(commentId)) {
+      idToUsertextNode.set(commentId, getCommentUsertextNode(commentNode))
+    }
+
+    if (!expandCommentNode(commentNode)) {
+      // Comment wasn't expanded, don't process it yet
+      return
+    }
+
     if (scheduledCommentIds.has(commentId)) return
     if (processedCommentIds.has(commentId)) return
-
-    idToCommentNode.set(commentId, commentNode)
-
-    expandCommentNode(commentNode)
 
     const isBodyDeleted = isCommentBodyDeleted(commentNode)
     const isAuthorDeleted = isCommentAuthorDeleted(commentNode)
 
     if (!isBodyDeleted && !isAuthorDeleted) return
 
+    // Add loading indicator when scheduling a fetch
+    if (isBodyDeleted) {
+      showLoadingIndicator(commentId)
+    }
+
     if (isOnlyCommentAuthorDeleted(commentNode)) {
       missingFieldBuckets.author.add(commentId)
     } else if (isOnlyCommentBodyDeleted(commentNode)) {
-      missingFieldBuckets.author.add(commentId)
+      missingFieldBuckets.body.add(commentId)
     } else {
       missingFieldBuckets.all.add(commentId)
     }
@@ -642,6 +737,7 @@ import { MsgTypeEnum } from './background.js'
     commentIdsArray.forEach(n => {
       processedCommentIds.add(n)
       idToCommentNode.delete(n)
+      idToUsertextNode.delete(n)
     })
   }
 
@@ -672,7 +768,7 @@ import { MsgTypeEnum } from './background.js'
         const selftext = response.postData[0]['selftext_html']
           ? response.postData[0]['selftext_html']
           : response.postData[0]['selftext'] === ''
-            ? "<div class='md'>[deleted]</div>"
+            ? "<div class='md'>[not found in archive]</div>"
             : undefined
 
         updatePostNode(postNode, author, selftext, title)
@@ -700,4 +796,5 @@ import { MsgTypeEnum } from './background.js'
   processMainPost()
   processExistingComments()
   observeNewComments()
+  observeManualExpansions()
 })()

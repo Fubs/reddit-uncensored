@@ -1,7 +1,7 @@
 {
   "name": "reddit-uncensored",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,5 +10,20 @@
     "format": "prettier --write --ignore-unknown \"src/*.{html,css,js,mjs,ts,json}\"",
     "clean": "rm -rf dist dist.crx",
     "pack": "chromium --pack-extension=./dist --pack-extension-key=./dist.pem"
+  },
+  "devDependencies": {
+    "adm-zip": "^0.5.16",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "dotenv-webpack": "^8.1.0",
+    "file-loader": "^6.2.0",
+    "mini-css-extract-plugin": "^2.9.2",
+    "prettier": "^3.4.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-merge": "^6.0.1"
+  },
+  "dependencies": {
+    "dompurify": "^3.2.3"
   }
 }

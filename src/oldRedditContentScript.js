@@ -6,8 +6,16 @@ import DOMPurify from 'dompurify'
   let fetchTimer = null
 
   const idToCommentNode = new Map()
+  const idToUsertextNode = new Map()
   const scheduledCommentIds = new Set()
   const processedCommentIds = new Set()
+
+  let shouldAutoExpand = true
+
+  // Load settings
+  chrome.storage.local.get(['expandCollapsedComments'], result => {
+    shouldAutoExpand = result.expandCollapsedComments ?? true
+  })
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -24,14 +32,16 @@ import DOMPurify from 'dompurify'
     '[deleted by user]',
     '[removed]',
     '[ Removed by Reddit ]',
-    'Removed by Reddit',
+    'Comment removed',
+    'Comment deleted',
     'Comment removed by moderator',
     'Comment deleted by user',
+    'Comment removed by Reddit',
+    'Deleted by user',
+    'Removed by moderator',
+    'Removed by Reddit',
+    'Loading from archive...',
   ])
-
-  function isDeletedText(text) {
-    return DELETED_TEXT.has(text.trim())
-  }
 
   function removeCommentIdFromBuckets(id) {
     missingFieldBuckets.author.delete(id)
@@ -40,10 +50,38 @@ import DOMPurify from 'dompurify'
   }
 
   function expandCommentNode(commentNode) {
-    if (!commentNode.classList.contains('expanded-by-arctic-shift-extension')) {
-      commentNode.classList.remove('collapsed')
-      commentNode.classList.add('expanded-by-arctic-shift-extension')
+    if (!shouldAutoExpand && commentNode.classList.contains('collapsed')) {
+      // Don't auto-expand if setting is disabled
+      return false
     }
+
+    commentNode.classList.remove('collapsed')
+    commentNode.classList.add('expanded-by-reddit-uncensored-extension')
+    return true
+  }
+
+  function observeManualExpansions() {
+    if (shouldAutoExpand) return // Don't need this when auto-expanding
+
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (
+          mutation.target.classList &&
+          mutation.oldValue?.includes('collapsed') &&
+          !mutation.target.classList.contains('collapsed')
+        ) {
+          // Comment was manually expanded
+          processCommentNode(mutation.target)
+        }
+      })
+    })
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class'],
+      attributeOldValue: true,
+      subtree: true,
+    })
   }
 
   function isValidRedditId(redditId) {
@@ -68,6 +106,10 @@ import DOMPurify from 'dompurify'
    */
   function getNewCommentNodes() {
     return document.querySelectorAll('.comment:not([undeleted])')
+  }
+
+  function getCommentUsertextNode(commentNode) {
+    return commentNode.querySelector('div.usertext-body > div.md')
   }
 
   /**
@@ -95,20 +137,26 @@ import DOMPurify from 'dompurify'
   function getAuthorNode(root) {
     const candidate1 = root.querySelector('p.tagline').firstChild.nextSibling
 
-    if (candidate1 && isDeletedText(candidate1.textContent)) {
+    if (candidate1 && DELETED_TEXT.has(candidate1.textContent.trim())) {
       return candidate1
     }
 
-    const candidate2 = root.querySelector('p.tagline > a.author')
+    const candidate2 = root.querySelector('p.tagline > span')
 
-    if (candidate2 && isDeletedText(candidate2.textContent)) {
+    if (candidate2 && DELETED_TEXT.has(candidate2.textContent.trim())) {
       return candidate2
     }
 
     const candidate3 = root.querySelector('p.tagline > a.author')
 
-    if (candidate3) {
+    if (candidate3 && DELETED_TEXT.has(candidate3.textContent.trim())) {
       return candidate3
+    }
+
+    const candidate4 = root.querySelector('p.tagline > a.author')
+
+    if (candidate4) {
+      return candidate4
     }
 
     return null
@@ -146,19 +194,6 @@ import DOMPurify from 'dompurify'
   }
 
   /**
-   * Checks if a comment is deleted
-   * @param {HTMLElement} commentNode
-   * @returns {boolean}
-   */
-  function isCommentDeleted(commentNode) {
-    return (
-      isCommentAuthorDeleted(commentNode) ||
-      isCommentBodyDeleted(commentNode) ||
-      !commentNode.hasAttribute('data-fullname')
-    )
-  }
-
-  /**
    * Checks if a comment's body is deleted
    * @param {HTMLElement} commentNode
    * @returns {boolean}
@@ -166,7 +201,7 @@ import DOMPurify from 'dompurify'
   function isCommentBodyDeleted(commentNode) {
     const usertextNode = commentNode.querySelector('div.md > p')
     if (usertextNode) {
-      return isDeletedText(usertextNode.textContent)
+      return DELETED_TEXT.has(usertextNode.textContent.trim())
     }
     return false
   }
@@ -180,7 +215,7 @@ import DOMPurify from 'dompurify'
     const a = getAuthorNode(commentNode)
     if (a) {
       const textContent = a.textContent.trim()
-      return isDeletedText(textContent)
+      return DELETED_TEXT.has(textContent.trim())
     }
   }
 
@@ -209,7 +244,12 @@ import DOMPurify from 'dompurify'
    */
   function isPostAuthorDeleted(postNode) {
     const postAuthorNode = getAuthorNode(postNode)
-    return !postNode.classList.contains('undeleted') && postAuthorNode && isDeletedText(postAuthorNode.textContent)
+    if (!postAuthorNode) {
+      console.log('postAuthorNode is null')
+      return false
+    }
+    console.log('postAuthorNode', postAuthorNode)
+    return DELETED_TEXT.has(postAuthorNode.textContent.trim())
   }
 
   /**
@@ -219,7 +259,9 @@ import DOMPurify from 'dompurify'
    */
   function isPostTitleDeleted(postNode) {
     const postTitleNode = getPostTitleNode(postNode)
-    return !postNode.classList.contains('undeleted') && postTitleNode && isDeletedText(postTitleNode.textContent)
+    return (
+      !postNode.classList.contains('undeleted') && postTitleNode && DELETED_TEXT.has(postTitleNode.textContent.trim())
+    )
   }
 
   /**
@@ -238,7 +280,7 @@ import DOMPurify from 'dompurify'
     const usertextNode = postNode.querySelector('div.entry div.usertext-body > div.md > p')
 
     if (usertextNode) {
-      return isDeletedText(usertextNode.textContent)
+      return DELETED_TEXT.has(usertextNode.textContent.trim())
     }
 
     // check if the url was replaced with .../removed_by_reddit/
@@ -256,21 +298,44 @@ import DOMPurify from 'dompurify'
   }
 
   /**
+   * Replace a comment with some text to indicate that a it is loading
+   * @param {string} commentId
+   */
+  function showLoadingIndicator(commentId) {
+    if (!idToUsertextNode.has(commentId)) return
+    const usertextNode = idToUsertextNode.get(commentId)
+
+    if (usertextNode) {
+      const parser = new DOMParser()
+      const loadingNodeHTML = `<div class="md loading-indicator"><p>Loading from archive...</p></div>`
+      const parsedHtml = parser.parseFromString(loadingNodeHTML, 'text/html')
+      applyStyles(parsedHtml.body.childNodes[0], {
+        color: 'gray',
+        fontStyle: 'italic',
+      })
+      const container = usertextNode.closest('div.md')
+      if (container) {
+        container.replaceWith(parsedHtml.body.childNodes[0])
+      }
+    }
+  }
+
+  /**
    * Gets the comment ID from a comment node
    * @param {HTMLElement} commentNode
    * @returns {string|null}
    */
 
   function getCommentId(commentNode) {
-    if (commentNode.hasAttribute('arctic-shift-cached-id')) {
-      return commentNode.getAttribute('arctic-shift-cached-id')
+    if (commentNode.hasAttribute('reddit-uncensored-cached-id')) {
+      return commentNode.getAttribute('reddit-uncensored-cached-id')
     }
 
     const dataFullname = commentNode.getAttribute('data-fullname')
     if (dataFullname) {
       const id = dataFullname.replace('t1_', '')
       if (isValidRedditId(id)) {
-        commentNode.setAttribute('arctic-shift-cached-id', id)
+        commentNode.setAttribute('reddit-uncensored-cached-id', id)
         return id
       }
     }
@@ -279,7 +344,7 @@ import DOMPurify from 'dompurify'
     if (permalink) {
       const match = permalink.match(/\/comments\/[^/]+\/[^/]+\/([^/]+)/)
       if (match && match[1] && isValidRedditId(match[1])) {
-        commentNode.setAttribute('arctic-shift-cached-id', match[1])
+        commentNode.setAttribute('reddit-uncensored-cached-id', match[1])
         return match[1]
       }
     }
@@ -295,12 +360,13 @@ import DOMPurify from 'dompurify'
    * @throws {Error} If post ID cannot be found
    */
   function getPostId(postNode) {
-    if (postNode.hasAttribute('arctic-shift-cached-id')) return postNode.getAttribute('arctic-shift-cached-id')
+    if (postNode.hasAttribute('reddit-uncensored-cached-id'))
+      return postNode.getAttribute('reddit-uncensored-cached-id')
 
     if (postNode.hasAttribute('data-fullname')) {
       const postId = postNode.getAttribute('data-fullname').replace('t3_', '')
       if (isValidRedditId(postId)) {
-        postNode.setAttribute('arctic-shift-cached-id', postId)
+        postNode.setAttribute('reddit-uncensored-cached-id', postId)
         return postId
       }
     }
@@ -311,7 +377,7 @@ import DOMPurify from 'dompurify'
 
     const matches = matchTarget.match(/\/comments\/([a-zA-Z0-9]{1,7})\//)
     if (matches && isValidRedditId(matches[1])) {
-      postNode.setAttribute('arctic-shift-cached-id', matches[1])
+      postNode.setAttribute('reddit-uncensored-cached-id', matches[1])
       return matches[1]
     } else {
       throw new Error("couldn't get post id")
@@ -324,10 +390,9 @@ import DOMPurify from 'dompurify'
    * @param {string} author
    */
   function replaceAuthorNode(authorNode, author) {
-    const newAuthorElement = author !== '[deleted]' ? document.createElement('a') : document.createElement('span')
-
-    newAuthorElement.textContent = author
-    newAuthorElement.href = author !== '[deleted]' ? `https://old.reddit.com/u/${author}/` : null
+    const newAuthorElement = author === '[deleted]' ? document.createElement('span') : document.createElement('a')
+    newAuthorElement.textContent = author === '[deleted]' ? '[not found in archive]' : author
+    newAuthorElement.href = author === '[deleted]' ? null : `https://old.reddit.com/u/${author}/`
 
     applyStyles(newAuthorElement, { color: 'red', fontWeight: 'bold' })
     authorNode.replaceWith(newAuthorElement)
@@ -348,8 +413,16 @@ import DOMPurify from 'dompurify'
     }
 
     const parser = new DOMParser()
-    const correctHtmlStr = htmlContent ? htmlContent : '<div class="md">[deleted]</div>'
-    const parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
+    const correctHtmlStr = htmlContent ? htmlContent : '<div class="md"><p>[not found in archive]</p></div>'
+    let parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
+    if (
+      parsedHtml &&
+      parsedHtml.body &&
+      parsedHtml.body.querySelector('p') &&
+      parsedHtml.body.querySelector('p').textContent === '[deleted]'
+    ) {
+      parsedHtml = parser.parseFromString('<div class="md"><p>[not found in archive]</p></div>', 'text/html')
+    }
     if (parsedHtml.body.hasChildNodes()) {
       let newMdContainer = parsedHtml.body.childNodes[0]
 
@@ -489,7 +562,7 @@ import DOMPurify from 'dompurify'
     if (author) {
       updateAuthorNode(postNode, author)
     } else {
-      updateAuthorNode(postNode, '[deleted]')
+      updateAuthorNode(postNode, '[not found in archive]')
     }
   }
 
@@ -499,7 +572,7 @@ import DOMPurify from 'dompurify'
    * @param {string|null} postTitleText
    */
   function updatePostTitle(postNode, postTitleText) {
-    const newTitleText = postTitleText ? postTitleText : "<h1 class='title'>[deleted]</h1>"
+    const newTitleText = postTitleText ? postTitleText : "<h1 class='title'>[not found in archive]</h1>"
     const postTitleNode = getPostTitleNode(postNode)
     if (isPostTitleDeleted(postNode) && newTitleText) {
       const newTitle = document.createElement('a')
@@ -526,8 +599,8 @@ import DOMPurify from 'dompurify'
   function updatePostBody(postNode, postSelftextHtml) {
     let expandoNode = postNode.querySelector('div.entry > div.expando')
     const newId = hashCode(
-      postNode.hasAttribute('arctic-shift-cached-id')
-        ? postNode.getAttribute('arctic-shift-cached-id')
+      postNode.hasAttribute('reddit-uncensored-cached-id')
+        ? postNode.getAttribute('reddit-uncensored-cached-id')
         : postNode.id !== 'undefined'
           ? postNode.id
           : Math.random().toString(),
@@ -704,20 +777,33 @@ import DOMPurify from 'dompurify'
    */
   function processCommentNode(commentNode) {
     const commentId = getCommentId(commentNode)
-
     if (!commentId) return
 
-    expandCommentNode(commentNode)
-    if (!isCommentDeleted(commentNode)) return
+    if (!idToCommentNode.has(commentId)) {
+      idToCommentNode.set(commentId, commentNode)
+    }
+
+    if (!idToUsertextNode.has(commentId)) {
+      idToUsertextNode.set(commentId, getCommentUsertextNode(commentNode))
+    }
+
+    if (!expandCommentNode(commentNode)) {
+      // Comment wasn't expanded, don't process it yet
+      return
+    }
+
     if (scheduledCommentIds.has(commentId)) return
     if (processedCommentIds.has(commentId)) return
-
-    idToCommentNode.set(commentId, commentNode)
 
     const isBodyDeleted = isCommentBodyDeleted(commentNode)
     const isAuthorDeleted = isCommentAuthorDeleted(commentNode)
 
     if (!isBodyDeleted && !isAuthorDeleted) return
+
+    // Add loading indicator when scheduling a fetch
+    if (isBodyDeleted) {
+      showLoadingIndicator(commentId)
+    }
 
     if (isOnlyCommentAuthorDeleted(commentNode)) {
       missingFieldBuckets.author.add(commentId)
@@ -727,12 +813,7 @@ import DOMPurify from 'dompurify'
       missingFieldBuckets.all.add(commentId)
     }
 
-    const grayDiv = commentNode.querySelector('div.entry > div.grayed')
-    if (grayDiv) {
-      grayDiv.classList.remove('grayed')
-    }
-    commentNode.setAttribute('undeleted', 'true')
-
+    commentNode.classList.add('undeleted')
     scheduledCommentIds.add(commentId)
   }
 
@@ -790,6 +871,10 @@ import DOMPurify from 'dompurify'
         console.error('Error fetching comment batches:', error)
       })
   }
+
+  /** @typedef {Object} Response
+   *  @property {Object[]} commentsData
+   */
 
   /**
    * Handles the response from a comment fetch
@@ -894,7 +979,7 @@ import DOMPurify from 'dompurify'
         const selftext = response.postData[0]['selftext_html']
           ? response.postData[0]['selftext_html']
           : response.postData[0]['selftext'] === ''
-            ? "<div class='md'>[deleted]</div>"
+            ? "<div class='md'>[not found in archive]</div>"
             : undefined
 
         updatePostNode(postNode, author, selftext, title)
@@ -922,4 +1007,5 @@ import DOMPurify from 'dompurify'
   processMainPost()
   processExistingComments()
   observeNewComments()
+  observeManualExpansions()
 })()

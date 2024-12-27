@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Reddit Uncensored Settings</title>
+    <style>
+      :root {
+        /* Base font size for rem calculations */
+        font-size: 16px;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
+        min-width: 25rem;
+        max-width: 50rem;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 0.0625rem solid #eee;
+      }
+
+      .header img {
+        width: 3rem;
+        height: 3rem;
+        margin-right: 1rem;
+      }
+
+      .header h1 {
+        margin: 0;
+        color: #333;
+      }
+
+      .setting-item {
+        margin-bottom: 1.5625rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 0.0625rem solid #eee;
+      }
+
+      .setting-item:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+
+      .setting-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+
+      .setting-label {
+        margin-right: 1rem;
+        font-weight: 500;
+      }
+
+      .setting-help {
+        color: #666;
+        font-size: 0.9em;
+        line-height: 1.4;
+        margin-top: 0.5rem;
+        padding-right: 4.375rem;
+      }
+
+      /* Toggle switch styles */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 3.75rem;
+        height: 2.125rem;
+        flex-shrink: 0;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+        border-radius: 2.125rem;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: '';
+        height: 1.625rem;
+        width: 1.625rem;
+        left: 0.25rem;
+        bottom: 0.25rem;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: #2196f3;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(1.625rem);
+      }
+
+      .radio-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .radio-label {
+        display: block;
+        margin: 0.125rem 0;
+        cursor: pointer;
+        color: #333;
+      }
+
+      .radio-label input[type='radio'] {
+        margin-right: 0.5rem;
+      }
+
+      .setting-label {
+        margin-right: 1rem;
+        font-weight: 500;
+        padding-top: 0.125rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!doctype html>
+    <div class="container">
+      <div class="header">
+        <img id="extensionIcon" data-icon="icon_48.png" alt="Reddit Uncensored" />
+        <h1>Reddit Uncensored Settings</h1>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-row">
+          <span class="setting-label">Expand all collapsed comments</span>
+          <label class="switch">
+            <input type="checkbox" id="expandCollapsedComments" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-help">
+          Enable this setting to automatically expand all collapsed comments. This setting does not automatically
+          <i>load</i> all comments. It only expands comments which were flagged by a content filter to be collapsed by
+          default.
+        </div>
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
