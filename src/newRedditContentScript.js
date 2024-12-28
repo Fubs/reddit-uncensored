@@ -68,26 +68,6 @@ import { MsgTypeEnum } from './background.js'
     return true
   }
 
-  // Add new observer for manual expansions
-  function observeManualExpansions() {
-    if (shouldAutoExpand) return // Don't need this when auto-expanding
-
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(mutation => {
-        if (mutation.target.nodeName === 'SHREDDIT-COMMENT' && !mutation.target.hasAttribute('collapsed')) {
-          // Comment was manually expanded
-          processCommentNode(mutation.target)
-        }
-      })
-    })
-
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['collapsed'],
-      subtree: true,
-    })
-  }
-
   /**
    * Checks if a string is a valid reddit id.
    * Reddit assigns a unique id to every post and comment
@@ -562,7 +542,12 @@ import { MsgTypeEnum } from './background.js'
       debounceProcess()
     })
 
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['collapsed'],
+    })
   }
 
   function processNewComments() {
@@ -796,5 +781,4 @@ import { MsgTypeEnum } from './background.js'
   processMainPost()
   processExistingComments()
   observeNewComments()
-  observeManualExpansions()
 })()
