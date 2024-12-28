@@ -9,6 +9,6 @@
     "build": "mkdir -p dist && webpack --mode=production --config webpack.config.mjs",
     "format": "prettier --write --ignore-path ../.gitignore --ignore-unknown \"{,!(node_modules)/**/}*.{html,css,js,mjs,ts,json}\"",
     "clean": "rm -rf dist dist.crx dist.zip reddit-uncensored*.zip",
-    "pack": "chromium --pack-extension=./dist --pack-extension-key=./dist.pem"
+    "pack": "if [ ! -f \"./dist.pem\" ]; then chromium --pack-extension=./dist; else chromium --pack-extension=./dist --pack-extension-key=./dist.pem; fi"
   }
 }
