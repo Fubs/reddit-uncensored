@@ -1,5 +1,6 @@
 import { MsgTypeEnum } from './background.js'
 import DOMPurify from 'dompurify'
+
 ;(function () {
   'use strict'
 
@@ -11,11 +12,6 @@ import DOMPurify from 'dompurify'
   const processedCommentIds = new Set()
 
   let shouldAutoExpand = true
-
-  // Load settings
-  chrome.storage.local.get(['expandCollapsedComments'], result => {
-    shouldAutoExpand = result.expandCollapsedComments ?? true
-  })
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -56,32 +52,7 @@ import DOMPurify from 'dompurify'
     }
 
     commentNode.classList.remove('collapsed')
-    commentNode.classList.add('expanded-by-reddit-uncensored-extension')
     return true
-  }
-
-  function observeManualExpansions() {
-    if (shouldAutoExpand) return // Don't need this when auto-expanding
-
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(mutation => {
-        if (
-          mutation.target.classList &&
-          mutation.oldValue?.includes('collapsed') &&
-          !mutation.target.classList.contains('collapsed')
-        ) {
-          // Comment was manually expanded
-          processCommentNode(mutation.target)
-        }
-      })
-    })
-
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['class'],
-      attributeOldValue: true,
-      subtree: true,
-    })
   }
 
   function isValidRedditId(redditId) {
@@ -700,9 +671,14 @@ import DOMPurify from 'dompurify'
       })
     }
     commentNode.classList.add('undeleted')
-    const n = commentNode.querySelector('div.admin_takedown')
-    if (n) {
-      n.classList.remove('admin_takedown')
+    const takedown_div = commentNode.querySelector('div.admin_takedown')
+    if (takedown_div) {
+      takedown_div.classList.remove('admin_takedown')
+    }
+
+    const grayed_div = commentNode.querySelector('div.grayed')
+    if (grayed_div) {
+      grayed_div.classList.remove('grayed')
     }
   }
 
@@ -760,7 +736,7 @@ import DOMPurify from 'dompurify'
       throttleProcess()
     })
 
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
   }
 
   /**
@@ -787,13 +763,14 @@ import DOMPurify from 'dompurify'
       idToUsertextNode.set(commentId, getCommentUsertextNode(commentNode))
     }
 
+    if (processedCommentIds.has(commentId)) return
+
     if (!expandCommentNode(commentNode)) {
       // Comment wasn't expanded, don't process it yet
       return
     }
 
     if (scheduledCommentIds.has(commentId)) return
-    if (processedCommentIds.has(commentId)) return
 
     const isBodyDeleted = isCommentBodyDeleted(commentNode)
     const isAuthorDeleted = isCommentAuthorDeleted(commentNode)
@@ -1007,5 +984,4 @@ import DOMPurify from 'dompurify'
   processMainPost()
   processExistingComments()
   observeNewComments()
-  observeManualExpansions()
 })()
