@@ -1,7 +1,7 @@
 import { MsgTypeEnum } from './background.js'
 import DOMPurify from 'dompurify'
 
-;(function () {
+;(async function () {
   'use strict'
 
   let fetchTimer = null
@@ -11,7 +11,7 @@ import DOMPurify from 'dompurify'
   const scheduledCommentIds = new Set()
   const processedCommentIds = new Set()
 
-  let shouldAutoExpand = true
+  let shouldAutoExpand = null
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -39,13 +39,13 @@ import DOMPurify from 'dompurify'
     'Loading from archive...',
   ])
 
-  function removeCommentIdFromBuckets(id) {
+  async function removeCommentIdFromBuckets(id) {
     missingFieldBuckets.author.delete(id)
     missingFieldBuckets.body.delete(id)
     missingFieldBuckets.all.delete(id)
   }
 
-  function expandCommentNode(commentNode) {
+  async function expandCommentNode(commentNode) {
     if (!shouldAutoExpand && commentNode.classList.contains('collapsed')) {
       // Don't auto-expand if setting is disabled
       return false
@@ -55,57 +55,57 @@ import DOMPurify from 'dompurify'
     return true
   }
 
-  function isValidRedditId(redditId) {
+  async function isValidRedditId(redditId) {
     return /^[a-zA-Z0-9]{1,7}$/.test(redditId)
   }
 
-  function applyStyles(element, styles) {
+  async function applyStyles(element, styles) {
     Object.assign(element.style, styles)
   }
 
   /**
    * Gets all comment nodes on the page
-   * @returns {NodeListOf<Element>}
+   * @returns {Promise<NodeListOf<Element>>}
    */
-  function getCommentNodes() {
+  async function getCommentNodes() {
     return document.querySelectorAll('div.comment')
   }
 
   /**
    * Gets all new comment nodes that haven't been processed yet
-   * @returns {NodeListOf<Element>}
+   * @returns {Promise<NodeListOf<Element>>}
    */
-  function getNewCommentNodes() {
+  async function getNewCommentNodes() {
     return document.querySelectorAll('.comment:not([undeleted])')
   }
 
-  function getCommentUsertextNode(commentNode) {
+  async function getCommentUsertextNode(commentNode) {
     return commentNode.querySelector('div.usertext-body > div.md')
   }
 
   /**
    * Gets the main post node
-   * @returns {Element}
+   * @returns {Promise<Element>}
    */
-  function getPostNode() {
+  async function getPostNode() {
     return document.querySelector('div#siteTable').firstElementChild
   }
 
   /**
    * Gets the title node of a post
    * @param {HTMLElement} postNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLElement>}
    */
-  function getPostTitleNode(postNode) {
+  async function getPostTitleNode(postNode) {
     return postNode.querySelector('div.top-matter > p.title > a.title')
   }
 
   /**
    * Gets the author node from a post or comment
    * @param {HTMLElement} root
-   * @returns {ChildNode}
+   * @returns {Promise<ChildNode>}
    */
-  function getAuthorNode(root) {
+  async function getAuthorNode(root) {
     const candidate1 = root.querySelector('p.tagline').firstChild.nextSibling
 
     if (candidate1 && DELETED_TEXT.has(candidate1.textContent.trim())) {
@@ -136,9 +136,9 @@ import DOMPurify from 'dompurify'
   /**
    * Gets the body content node of a post
    * @param {HTMLElement} postNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLElement>}
    */
-  function getPostBodyNode(postNode) {
+  async function getPostBodyNode(postNode) {
     const bodyNode = postNode.querySelector('div.expando > form > div.md-container')
     return bodyNode ? bodyNode : document.querySelector('div.usertext-body.md-container')
   }
@@ -146,18 +146,18 @@ import DOMPurify from 'dompurify'
   /**
    * Gets a set of missing fields for a post
    * @param {HTMLElement} postNode
-   * @returns {Set<string>}
+   * @returns {Promise<Set<string>>}
    */
-  function getMissingPostFields(postNode) {
+  async function getMissingPostFields(postNode) {
     const missingFields = new Set()
 
-    if (isPostAuthorDeleted(postNode)) {
+    if (await isPostAuthorDeleted(postNode)) {
       missingFields.add('author')
     }
-    if (isPostBodyDeleted(postNode)) {
+    if (await isPostBodyDeleted(postNode)) {
       missingFields.add('selftext')
     }
-    if (isPostTitleDeleted(postNode)) {
+    if (await isPostTitleDeleted(postNode)) {
       missingFields.add('title')
     }
 
@@ -167,9 +167,9 @@ import DOMPurify from 'dompurify'
   /**
    * Checks if a comment's body is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isCommentBodyDeleted(commentNode) {
+  async function isCommentBodyDeleted(commentNode) {
     const usertextNode = commentNode.querySelector('div.md > p')
     if (usertextNode) {
       return DELETED_TEXT.has(usertextNode.textContent.trim())
@@ -180,10 +180,10 @@ import DOMPurify from 'dompurify'
   /**
    * Checks if a comment's author is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isCommentAuthorDeleted(commentNode) {
-    const a = getAuthorNode(commentNode)
+  async function isCommentAuthorDeleted(commentNode) {
+    const a = await getAuthorNode(commentNode)
     if (a) {
       const textContent = a.textContent.trim()
       return DELETED_TEXT.has(textContent.trim())
@@ -193,43 +193,42 @@ import DOMPurify from 'dompurify'
   /**
    * Checks if only the comment's author is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isOnlyCommentAuthorDeleted(commentNode) {
-    return isCommentAuthorDeleted(commentNode) && !isCommentBodyDeleted(commentNode)
+  async function isOnlyCommentAuthorDeleted(commentNode) {
+    return (await isCommentAuthorDeleted(commentNode)) && !(await isCommentBodyDeleted(commentNode))
   }
 
   /**
    * Checks if only the comment's body is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isOnlyCommentBodyDeleted(commentNode) {
-    return !isCommentAuthorDeleted(commentNode) && isCommentBodyDeleted(commentNode)
+  async function isOnlyCommentBodyDeleted(commentNode) {
+    return !(await isCommentAuthorDeleted(commentNode)) && isCommentBodyDeleted(commentNode)
   }
 
   /**
    * Checks if a post's author is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostAuthorDeleted(postNode) {
-    const postAuthorNode = getAuthorNode(postNode)
+  async function isPostAuthorDeleted(postNode) {
+    const postAuthorNode = await getAuthorNode(postNode)
     if (!postAuthorNode) {
       console.log('postAuthorNode is null')
       return false
     }
-    console.log('postAuthorNode', postAuthorNode)
     return DELETED_TEXT.has(postAuthorNode.textContent.trim())
   }
 
   /**
    * Checks if a post's title is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostTitleDeleted(postNode) {
-    const postTitleNode = getPostTitleNode(postNode)
+  async function isPostTitleDeleted(postNode) {
+    const postTitleNode = await getPostTitleNode(postNode)
     return (
       !postNode.classList.contains('undeleted') && postTitleNode && DELETED_TEXT.has(postTitleNode.textContent.trim())
     )
@@ -238,13 +237,13 @@ import DOMPurify from 'dompurify'
   /**
    * Checks if a post's body content is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostBodyDeleted(postNode) {
+  async function isPostBodyDeleted(postNode) {
     if (postNode.classList.contains('undeleted')) return false
     if (postNode.classList.contains('deleted')) return true
 
-    const bodyNode = getPostBodyNode(postNode)
+    const bodyNode = await getPostBodyNode(postNode)
 
     if (bodyNode.classList.contains('admin_takedown')) return true
 
@@ -272,7 +271,7 @@ import DOMPurify from 'dompurify'
    * Replace a comment with some text to indicate that a it is loading
    * @param {string} commentId
    */
-  function showLoadingIndicator(commentId) {
+  async function showLoadingIndicator(commentId) {
     if (!idToUsertextNode.has(commentId)) return
     const usertextNode = idToUsertextNode.get(commentId)
 
@@ -280,7 +279,7 @@ import DOMPurify from 'dompurify'
       const parser = new DOMParser()
       const loadingNodeHTML = `<div class="md loading-indicator"><p>Loading from archive...</p></div>`
       const parsedHtml = parser.parseFromString(loadingNodeHTML, 'text/html')
-      applyStyles(parsedHtml.body.childNodes[0], {
+      await applyStyles(parsedHtml.body.childNodes[0], {
         color: 'gray',
         fontStyle: 'italic',
       })
@@ -294,10 +293,10 @@ import DOMPurify from 'dompurify'
   /**
    * Gets the comment ID from a comment node
    * @param {HTMLElement} commentNode
-   * @returns {string|null}
+   * @returns {Promise<string|null>}
    */
 
-  function getCommentId(commentNode) {
+  async function getCommentId(commentNode) {
     if (commentNode.hasAttribute('reddit-uncensored-cached-id')) {
       return commentNode.getAttribute('reddit-uncensored-cached-id')
     }
@@ -305,7 +304,7 @@ import DOMPurify from 'dompurify'
     const dataFullname = commentNode.getAttribute('data-fullname')
     if (dataFullname) {
       const id = dataFullname.replace('t1_', '')
-      if (isValidRedditId(id)) {
+      if (await isValidRedditId(id)) {
         commentNode.setAttribute('reddit-uncensored-cached-id', id)
         return id
       }
@@ -314,7 +313,7 @@ import DOMPurify from 'dompurify'
     const permalink = commentNode.getAttribute('data-permalink')
     if (permalink) {
       const match = permalink.match(/\/comments\/[^/]+\/[^/]+\/([^/]+)/)
-      if (match && match[1] && isValidRedditId(match[1])) {
+      if (match && match[1] && (await isValidRedditId(match[1]))) {
         commentNode.setAttribute('reddit-uncensored-cached-id', match[1])
         return match[1]
       }
@@ -327,16 +326,16 @@ import DOMPurify from 'dompurify'
   /**
    * Gets the post ID from a post node
    * @param {HTMLElement} postNode
-   * @returns {string}
+   * @returns {Promise<string>}
    * @throws {Error} If post ID cannot be found
    */
-  function getPostId(postNode) {
+  async function getPostId(postNode) {
     if (postNode.hasAttribute('reddit-uncensored-cached-id'))
       return postNode.getAttribute('reddit-uncensored-cached-id')
 
     if (postNode.hasAttribute('data-fullname')) {
       const postId = postNode.getAttribute('data-fullname').replace('t3_', '')
-      if (isValidRedditId(postId)) {
+      if (await isValidRedditId(postId)) {
         postNode.setAttribute('reddit-uncensored-cached-id', postId)
         return postId
       }
@@ -347,7 +346,7 @@ import DOMPurify from 'dompurify'
       : window.location.href
 
     const matches = matchTarget.match(/\/comments\/([a-zA-Z0-9]{1,7})\//)
-    if (matches && isValidRedditId(matches[1])) {
+    if (matches && (await isValidRedditId(matches[1]))) {
       postNode.setAttribute('reddit-uncensored-cached-id', matches[1])
       return matches[1]
     } else {
@@ -360,12 +359,12 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement | ChildNode} authorNode
    * @param {string} author
    */
-  function replaceAuthorNode(authorNode, author) {
+  async function replaceAuthorNode(authorNode, author) {
     const newAuthorElement = author === '[deleted]' ? document.createElement('span') : document.createElement('a')
     newAuthorElement.textContent = author === '[deleted]' ? '[not found in archive]' : author
     newAuthorElement.href = author === '[deleted]' ? null : `https://old.reddit.com/u/${author}/`
 
-    applyStyles(newAuthorElement, { color: 'red', fontWeight: 'bold' })
+    await applyStyles(newAuthorElement, { color: 'red', fontWeight: 'bold' })
     authorNode.replaceWith(newAuthorElement)
   }
 
@@ -375,9 +374,17 @@ import DOMPurify from 'dompurify'
    * @param {string} htmlContent
    * @param {Object} styles
    * @param {string|null} newId
+   * @param {string|null} newClassList
    * @param {string} surroundWithDiv
    */
-  function replaceContentBody(containerNode, htmlContent, styles = {}, newId = null, surroundWithDiv = '') {
+  async function replaceContentBody(
+    containerNode,
+    htmlContent,
+    styles = {},
+    newClassList = null,
+    newId = null,
+    surroundWithDiv = '',
+  ) {
     if (!containerNode) {
       console.warn('Container node is null or undefined')
       return
@@ -403,14 +410,14 @@ import DOMPurify from 'dompurify'
           newMdContainer.appendChild(node)
         })
 
-      applyStyles(newMdContainer, {
+      await applyStyles(newMdContainer, {
         ...styles,
       })
 
       if (surroundWithDiv) {
         const surroundingDiv = document.createElement('div')
         surroundingDiv.classList.add(...surroundWithDiv.split(' '))
-        applyStyles(surroundingDiv, {
+        await applyStyles(surroundingDiv, {
           display: 'block',
         })
         surroundingDiv.appendChild(newMdContainer)
@@ -431,9 +438,9 @@ import DOMPurify from 'dompurify'
   /**
    * Generates a hash code from a string
    * @param {string} str
-   * @returns {number}
+   * @returns {Promise<number>}
    */
-  function hashCode(str) {
+  async function hashCode(str) {
     let hash = 0
     for (let i = 0, len = str.length; i < len; i++) {
       let chr = str.charCodeAt(i)
@@ -448,7 +455,7 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} originalButton
    * @param {string} nodeIdToExpand
    */
-  function replaceExpandoButton(originalButton, nodeIdToExpand) {
+  async function replaceExpandoButton(originalButton, nodeIdToExpand) {
     // the expando button on posts is just a toggle to show/hide the post body, but it will break when the post body is replaced with a new node
     // This function replaces the broken expando button with one that is linked with nodeToExpand
 
@@ -477,10 +484,10 @@ import DOMPurify from 'dompurify'
    * Adds a metadata button to a comment
    * @param {HTMLElement} commentNode
    */
-  function addMetadataButton(commentNode) {
+  async function addMetadataButton(commentNode) {
     if (commentNode.querySelector('.metadata-button')) return
 
-    const commentID = getCommentId(commentNode)
+    const commentID = await getCommentId(commentNode)
     if (!commentID) return
 
     const flatListButtons = commentNode.querySelector('ul.flat-list.buttons')
@@ -501,10 +508,10 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} rootNode
    * @param {string} author
    */
-  function updateAuthorNode(rootNode, author) {
-    const authorNode = getAuthorNode(rootNode)
+  async function updateAuthorNode(rootNode, author) {
+    const authorNode = await getAuthorNode(rootNode)
     if (authorNode) {
-      replaceAuthorNode(authorNode, author)
+      await replaceAuthorNode(authorNode, author)
     }
   }
 
@@ -515,10 +522,10 @@ import DOMPurify from 'dompurify'
    * @param {string|null} postSelftextHtml
    * @param {string|null} postTitleText
    */
-  function updatePostNode(postNode, postAuthorText, postSelftextHtml, postTitleText) {
-    if (isPostAuthorDeleted(postNode)) updatePostAuthor(postNode, postAuthorText ? postAuthorText : null)
-    if (isPostBodyDeleted(postNode)) updatePostBody(postNode, postSelftextHtml ? postSelftextHtml : null)
-    if (isPostTitleDeleted(postNode)) updatePostTitle(postNode, postTitleText ? postTitleText : null)
+  async function updatePostNode(postNode, postAuthorText, postSelftextHtml, postTitleText) {
+    if (await isPostAuthorDeleted(postNode)) await updatePostAuthor(postNode, postAuthorText ? postAuthorText : null)
+    if (await isPostBodyDeleted(postNode)) await updatePostBody(postNode, postSelftextHtml ? postSelftextHtml : null)
+    if (await isPostTitleDeleted(postNode)) await updatePostTitle(postNode, postTitleText ? postTitleText : null)
 
     postNode.classList.remove('deleted')
     postNode.classList.add('undeleted')
@@ -529,11 +536,11 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} postNode
    * @param {string|null} author
    */
-  function updatePostAuthor(postNode, author) {
+  async function updatePostAuthor(postNode, author) {
     if (author) {
-      updateAuthorNode(postNode, author)
+      await updateAuthorNode(postNode, author)
     } else {
-      updateAuthorNode(postNode, '[not found in archive]')
+      await updateAuthorNode(postNode, '[not found in archive]')
     }
   }
 
@@ -542,15 +549,15 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} postNode
    * @param {string|null} postTitleText
    */
-  function updatePostTitle(postNode, postTitleText) {
+  async function updatePostTitle(postNode, postTitleText) {
     const newTitleText = postTitleText ? postTitleText : "<h1 class='title'>[not found in archive]</h1>"
-    const postTitleNode = getPostTitleNode(postNode)
-    if (isPostTitleDeleted(postNode) && newTitleText) {
+    const postTitleNode = await getPostTitleNode(postNode)
+    if ((await isPostTitleDeleted(postNode)) && newTitleText) {
       const newTitle = document.createElement('a')
       newTitle.href = postTitleNode.href
       newTitle.textContent = newTitleText
 
-      applyStyles(newTitle, {
+      await applyStyles(newTitle, {
         border: '2px solid red',
         display: 'inline-block',
         //margin: ".3rem",
@@ -567,15 +574,15 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} postNode
    * @param {string|null} postSelftextHtml
    */
-  function updatePostBody(postNode, postSelftextHtml) {
+  async function updatePostBody(postNode, postSelftextHtml) {
     let expandoNode = postNode.querySelector('div.entry > div.expando')
-    const newId = hashCode(
+    const newId = await hashCode(
       postNode.hasAttribute('reddit-uncensored-cached-id')
         ? postNode.getAttribute('reddit-uncensored-cached-id')
         : postNode.id !== 'undefined'
           ? postNode.id
           : Math.random().toString(),
-    ).toString()
+    )
 
     let replaceTarget
     if (expandoNode) {
@@ -597,22 +604,23 @@ import DOMPurify from 'dompurify'
 
     const brokenExpandoBtn = postNode.querySelector('.expando-button')
     if (brokenExpandoBtn) {
-      replaceExpandoButton(brokenExpandoBtn, newId)
+      await replaceExpandoButton(brokenExpandoBtn, newId)
     }
 
     const sanitizedHtml = DOMPurify.sanitize(postSelftextHtml, {
       USE_PROFILES: { html: true },
     })
 
-    replaceContentBody(
+    await replaceContentBody(
       replaceTarget,
       sanitizedHtml,
       {
         padding: '.3rem',
         border: '2px solid red',
       },
+      'usertext-body',
       newId,
-      'usertext usertext-body',
+      'expando',
     )
 
     const p = document.getElementById(newId)
@@ -628,16 +636,16 @@ import DOMPurify from 'dompurify'
    * @param {string} author
    * @param {string} usertext
    */
-  function updateCommentNode(commentNode, id, author, usertext) {
+  async function updateCommentNode(commentNode, id, author, usertext) {
     commentNode.classList.add('undeleted')
     commentNode.classList.remove('deleted')
     if (author) {
-      updateCommentAuthor(commentNode, author)
+      await updateCommentAuthor(commentNode, author)
     }
     if (usertext) {
-      updateCommentBody(commentNode, usertext)
+      await updateCommentBody(commentNode, usertext)
     }
-    addMetadataButton(commentNode)
+    await addMetadataButton(commentNode)
     commentNode.classList.add('undeleted')
   }
 
@@ -646,9 +654,9 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} commentNode
    * @param {string} author
    */
-  function updateCommentAuthor(commentNode, author) {
+  async function updateCommentAuthor(commentNode, author) {
     if (!author) return
-    updateAuthorNode(commentNode, author)
+    await updateAuthorNode(commentNode, author)
     commentNode.classList.add('undeleted')
   }
 
@@ -657,13 +665,13 @@ import DOMPurify from 'dompurify'
    * @param {HTMLElement} commentNode
    * @param {string} usertext
    */
-  function updateCommentBody(commentNode, usertext) {
+  async function updateCommentBody(commentNode, usertext) {
     if (!usertext) return
     const usertextNode = commentNode.querySelector('.md')
-    if (usertextNode && isCommentBodyDeleted(commentNode)) {
+    if (usertextNode && (await isCommentBodyDeleted(commentNode))) {
       const sanitizedHtml = DOMPurify.sanitize(usertext)
 
-      replaceContentBody(usertextNode, sanitizedHtml, {
+      await replaceContentBody(usertextNode, sanitizedHtml, {
         display: 'inline-block',
         padding: '.1rem .2rem .1rem .2rem',
         width: 'fit-content',
@@ -685,14 +693,14 @@ import DOMPurify from 'dompurify'
   /**
    * Processes all existing comments on the page
    */
-  function processExistingComments() {
-    const commentNodes = getCommentNodes()
+  async function processExistingComments() {
+    const commentNodes = await getCommentNodes()
 
     commentNodes.forEach(commentNode => {
       processCommentNode(commentNode)
     })
 
-    scheduleFetch()
+    await scheduleFetch()
   }
 
   /**
@@ -726,7 +734,7 @@ import DOMPurify from 'dompurify'
   /**
    * Sets up an observer for new comments
    */
-  function observeNewComments() {
+  async function observeNewComments() {
     const throttleProcess = throttle(() => {
       processNewComments()
       scheduleFetch()
@@ -742,8 +750,8 @@ import DOMPurify from 'dompurify'
   /**
    * Processes newly added comments
    */
-  function processNewComments() {
-    const commentNodes = getNewCommentNodes()
+  async function processNewComments() {
+    const commentNodes = await getNewCommentNodes()
     commentNodes.forEach(processCommentNode)
   }
 
@@ -751,8 +759,8 @@ import DOMPurify from 'dompurify'
    * Processes a single comment node
    * @param {HTMLElement} commentNode
    */
-  function processCommentNode(commentNode) {
-    const commentId = getCommentId(commentNode)
+  async function processCommentNode(commentNode) {
+    const commentId = await getCommentId(commentNode)
     if (!commentId) return
 
     if (!idToCommentNode.has(commentId)) {
@@ -760,31 +768,31 @@ import DOMPurify from 'dompurify'
     }
 
     if (!idToUsertextNode.has(commentId)) {
-      idToUsertextNode.set(commentId, getCommentUsertextNode(commentNode))
+      idToUsertextNode.set(commentId, await getCommentUsertextNode(commentNode))
     }
 
     if (processedCommentIds.has(commentId)) return
 
-    if (!expandCommentNode(commentNode)) {
+    if (!(await expandCommentNode(commentNode))) {
       // Comment wasn't expanded, don't process it yet
       return
     }
 
     if (scheduledCommentIds.has(commentId)) return
 
-    const isBodyDeleted = isCommentBodyDeleted(commentNode)
-    const isAuthorDeleted = isCommentAuthorDeleted(commentNode)
+    const isBodyDeleted = await isCommentBodyDeleted(commentNode)
+    const isAuthorDeleted = await isCommentAuthorDeleted(commentNode)
 
     if (!isBodyDeleted && !isAuthorDeleted) return
 
     // Add loading indicator when scheduling a fetch
     if (isBodyDeleted) {
-      showLoadingIndicator(commentId)
+      await showLoadingIndicator(commentId)
     }
 
-    if (isOnlyCommentAuthorDeleted(commentNode)) {
+    if (await isOnlyCommentAuthorDeleted(commentNode)) {
       missingFieldBuckets.author.add(commentId)
-    } else if (isOnlyCommentBodyDeleted(commentNode)) {
+    } else if (await isOnlyCommentBodyDeleted(commentNode)) {
       missingFieldBuckets.body.add(commentId)
     } else {
       missingFieldBuckets.all.add(commentId)
@@ -797,18 +805,14 @@ import DOMPurify from 'dompurify'
   /**
    * Schedules a fetch operation
    */
-  function scheduleFetch() {
-    if (!fetchTimer) {
-      fetchTimer = setTimeout(() => {
-        fetchPendingComments()
-      }, 200)
-    }
+  async function scheduleFetch() {
+    await fetchPendingComments()
   }
 
   /**
    * Fetches pending comments
    */
-  function fetchPendingComments() {
+  async function fetchPendingComments() {
     if (
       missingFieldBuckets.author.size === 0 &&
       missingFieldBuckets.body.size === 0 &&
@@ -825,19 +829,19 @@ import DOMPurify from 'dompurify'
     if (missingFieldBuckets.author.size > 0) {
       const authorIds = Array.from(missingFieldBuckets.author)
       fetchPromises.push(fetchCommentBatch(MsgTypeEnum.COMMENTS_AUTHOR, authorIds))
-      removeCommentIds(authorIds)
+      await removeCommentIds(authorIds)
     }
 
     if (missingFieldBuckets.body.size > 0) {
       const bodyIds = Array.from(missingFieldBuckets.body)
       fetchPromises.push(fetchCommentBatch(MsgTypeEnum.COMMENTS_BODY, bodyIds))
-      removeCommentIds(bodyIds)
+      await removeCommentIds(bodyIds)
     }
 
     if (missingFieldBuckets.all.size > 0) {
       const allIds = Array.from(missingFieldBuckets.all)
       fetchPromises.push(fetchCommentBatch(MsgTypeEnum.COMMENTS_ALL, allIds))
-      removeCommentIds(allIds)
+      await removeCommentIds(allIds)
     }
 
     Promise.all(fetchPromises)
@@ -859,7 +863,7 @@ import DOMPurify from 'dompurify'
    * @param {string[]} commentIds
    * @param {number} type
    */
-  function handleResponse(response, commentIds, type) {
+  async function handleResponse(response, commentIds, type) {
     if (response && response.commentsData) {
       response.commentsData
         .map((k, i) => [k, commentIds[i]])
@@ -911,7 +915,7 @@ import DOMPurify from 'dompurify'
           commentIds: commentIdsArray,
         })
 
-        handleResponse(response, commentIdsArray, msgType)
+        await handleResponse(response, commentIdsArray, msgType)
       } catch (error) {
         const errorTypes = {
           [MsgTypeEnum.COMMENTS_AUTHOR]: 'authors',
@@ -934,8 +938,8 @@ import DOMPurify from 'dompurify'
    * @returns {Promise<void>}
    */
   async function fetchPostData(postNode) {
-    const postId = getPostId(postNode)
-    const missingFields = getMissingPostFields(postNode)
+    const postId = await getPostId(postNode)
+    const missingFields = await getMissingPostFields(postNode)
 
     if (missingFields.size === 0) {
       return
@@ -959,7 +963,7 @@ import DOMPurify from 'dompurify'
             ? "<div class='md'>[not found in archive]</div>"
             : undefined
 
-        updatePostNode(postNode, author, selftext, title)
+        await updatePostNode(postNode, author, selftext, title)
       } else {
         console.error('No response or postData from background script', response)
       }
@@ -971,17 +975,21 @@ import DOMPurify from 'dompurify'
   /**
    * Processes the main post
    */
-  function processMainPost() {
-    const postNode = getPostNode()
-
-    fetchPostData(postNode)
-      .then(() => {})
-      .catch(e => {
-        console.error('error:', e)
-      })
+  async function processMainPost() {
+    const postNode = await getPostNode()
+    await fetchPostData(postNode)
   }
 
-  processMainPost()
-  processExistingComments()
-  observeNewComments()
+  async function loadSettings() {
+    chrome.storage.local.get(['expandCollapsedComments'], result => {
+      shouldAutoExpand = result.expandCollapsedComments ?? true
+    })
+  }
+
+  await loadSettings()
+  await processMainPost()
+  await processExistingComments()
+  await observeNewComments()
 })()
+  .then(() => {})
+  .catch(e => console.error('error from main:', e))
