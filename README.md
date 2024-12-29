@@ -22,13 +22,11 @@ completely hidden do not have a comment ID that can be retreived.
 
 Arctic Shift stores a comment tree that could be used to find any hidden comments, but I have not yet implemented that functionality in this extension. I plan on adding that in a future version.
 
-## Install from Chrome Web Store, Firefox Add-on Store, or Edge Web Store
+## Install from Chrome Web Store or Firefox Add-on Store
 
-<ul>
-<li>Firefox: <a rel="nofollow" href="https://addons.mozilla.org/en-US/firefox/addon/reddit-uncensored/">https://addons.mozilla.org/en-US/firefox/addon/reddit-uncensored/</a></li>
-</ul>
+- Firefox: [https://addons.mozilla.org/en-US/firefox/addon/reddit-uncensored](https://addons.mozilla.org/en-US/firefox/addon/reddit-uncensored)
+- Chrome: [https://chrome.google.com/webstore/detail/amfnaoebakgdklcahkilhjoglflgnhbm](https://chrome.google.com/webstore/detail/amfnaoebakgdklcahkilhjoglflgnhbm)
 
-I've submitted the extension to the Chrome and Edge web stores, and I will add links here when it gets approved.
 
 ## Bug Reports
 
@@ -86,3 +84,4 @@ to create a .zip file in the `firefox/web-ext-artifacts` directory. This .zip ca
 This extension relies on the Artic Shift API, which is maintained and operated by Arthur Heitmann. If you would like to help cover the recurring costs of operating the Arctic Shift API, you can find donation links on his page [here](https://github.com/ArthurHeitmann).
 
 You can donate to me to support the development of this extension [here](https://www.paypal.com/donate/?business=ETLDAT6J53R74&no_recurring=0&item_name=Thanks+for+supporting+my+work%21&currency_code=USD). However, I would prefer you give some or all of your donation to support the continued operation of the Arctic Shift API. Servers aren't free!
+
