@@ -363,7 +363,7 @@ import DOMPurify from 'dompurify'
     newAuthorElement.textContent = author === '[deleted]' ? '[not found in archive]' : author
     newAuthorElement.href = author === '[deleted]' ? null : `https://old.reddit.com/u/${author}/`
 
-    await applyStyles(newAuthorElement, { color: 'red', fontWeight: 'bold' })
+    await applyStyles(newAuthorElement, { color: '#e85646', fontWeight: 'bold' })
     authorNode.replaceWith(newAuthorElement)
   }
 
@@ -542,7 +542,7 @@ import DOMPurify from 'dompurify'
       newTitle.textContent = newTitleText
 
       await applyStyles(newTitle, {
-        border: '2px solid red',
+        border: '2px solid #e85646',
         display: 'inline-block',
         //margin: ".3rem",
         padding: '.3rem',
@@ -594,7 +594,7 @@ import DOMPurify from 'dompurify'
       sanitizedHtml,
       {
         padding: '.3rem',
-        border: '2px solid red',
+        border: '2px solid #e85646',
       },
       'usertext-body',
       replacementId,
@@ -653,7 +653,7 @@ import DOMPurify from 'dompurify'
         display: 'inline-block',
         padding: '.1rem .2rem .1rem .2rem',
         width: 'fit-content',
-        border: '2px solid red',
+        border: '2px solid #e85646',
       })
     }
     commentNode.classList.add('undeleted')

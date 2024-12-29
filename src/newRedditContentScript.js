@@ -344,7 +344,7 @@ import { MsgTypeEnum } from './background.js'
       newAuthorElement.textContent = '[not found in archive]'
     }
 
-    await applyStyles(newAuthorElement, { color: 'salmon' })
+    await applyStyles(newAuthorElement, { color: '#e85646' })
     authorNode.replaceWith(newAuthorElement)
   }
 
@@ -372,7 +372,7 @@ import { MsgTypeEnum } from './background.js'
     }
 
     await applyStyles(newContent, {
-      outline: 'salmon solid',
+      outline: '#e85646 solid',
       display: 'inline-block',
       padding: '.4rem',
       width: 'fit-content',
@@ -428,7 +428,7 @@ import { MsgTypeEnum } from './background.js'
       newTitle.textContent = postTitleText
 
       await applyStyles(newTitle, {
-        outline: 'salmon solid',
+        outline: '#e85646 solid',
         display: 'inline-block',
         padding: '.3rem .3rem .4rem .5rem',
         width: 'fit-content',
