@@ -1,17 +1,17 @@
 import { MsgTypeEnum } from './background.js'
 import DOMPurify from 'dompurify'
-
 ;(async function () {
   'use strict'
 
   let fetchTimer = null
+  let shouldAutoExpand = null
 
   const idToCommentNode = new Map()
   const idToUsertextNode = new Map()
   const scheduledCommentIds = new Set()
   const processedCommentIds = new Set()
-
-  let shouldAutoExpand = null
+  let cachedCommentIds = new Map()
+  let cachedPostId = null
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -94,7 +94,7 @@ import DOMPurify from 'dompurify'
   /**
    * Gets the title node of a post
    * @param {HTMLElement} postNode
-   * @returns {Promise<HTMLElement>}
+   * @returns {Promise<HTMLLinkElement>}
    */
   async function getPostTitleNode(postNode) {
     return postNode.querySelector('div.top-matter > p.title > a.title')
@@ -283,7 +283,7 @@ import DOMPurify from 'dompurify'
         color: 'gray',
         fontStyle: 'italic',
       })
-      const container = usertextNode.closest('div.md')
+      const container = usertextNode.closest('div.md-container')
       if (container) {
         container.replaceWith(parsedHtml.body.childNodes[0])
       }
@@ -297,15 +297,15 @@ import DOMPurify from 'dompurify'
    */
 
   async function getCommentId(commentNode) {
-    if (commentNode.hasAttribute('reddit-uncensored-cached-id')) {
-      return commentNode.getAttribute('reddit-uncensored-cached-id')
+    if (cachedCommentIds.has(commentNode)) {
+      return cachedCommentIds.get(commentNode)
     }
 
     const dataFullname = commentNode.getAttribute('data-fullname')
     if (dataFullname) {
       const id = dataFullname.replace('t1_', '')
       if (await isValidRedditId(id)) {
-        commentNode.setAttribute('reddit-uncensored-cached-id', id)
+        cachedCommentIds.set(commentNode, id)
         return id
       }
     }
@@ -314,7 +314,7 @@ import DOMPurify from 'dompurify'
     if (permalink) {
       const match = permalink.match(/\/comments\/[^/]+\/[^/]+\/([^/]+)/)
       if (match && match[1] && (await isValidRedditId(match[1]))) {
-        commentNode.setAttribute('reddit-uncensored-cached-id', match[1])
+        cachedCommentIds.set(commentNode, match[1])
         return match[1]
       }
     }
@@ -330,13 +330,12 @@ import DOMPurify from 'dompurify'
    * @throws {Error} If post ID cannot be found
    */
   async function getPostId(postNode) {
-    if (postNode.hasAttribute('reddit-uncensored-cached-id'))
-      return postNode.getAttribute('reddit-uncensored-cached-id')
+    if (cachedPostId !== null) return cachedPostId
 
     if (postNode.hasAttribute('data-fullname')) {
       const postId = postNode.getAttribute('data-fullname').replace('t3_', '')
       if (await isValidRedditId(postId)) {
-        postNode.setAttribute('reddit-uncensored-cached-id', postId)
+        cachedPostId = postId
         return postId
       }
     }
@@ -347,7 +346,7 @@ import DOMPurify from 'dompurify'
 
     const matches = matchTarget.match(/\/comments\/([a-zA-Z0-9]{1,7})\//)
     if (matches && (await isValidRedditId(matches[1]))) {
-      postNode.setAttribute('reddit-uncensored-cached-id', matches[1])
+      cachedPostId = matches[1]
       return matches[1]
     } else {
       throw new Error("couldn't get post id")
@@ -433,21 +432,6 @@ import DOMPurify from 'dompurify'
         containerNode.replaceWith(newMdContainer)
       }
     }
-  }
-
-  /**
-   * Generates a hash code from a string
-   * @param {string} str
-   * @returns {Promise<number>}
-   */
-  async function hashCode(str) {
-    let hash = 0
-    for (let i = 0, len = str.length; i < len; i++) {
-      let chr = str.charCodeAt(i)
-      hash = (hash << 5) - hash + chr
-      hash |= 0 // Convert to 32bit integer
-    }
-    return hash
   }
 
   /**
@@ -576,20 +560,14 @@ import DOMPurify from 'dompurify'
    */
   async function updatePostBody(postNode, postSelftextHtml) {
     let expandoNode = postNode.querySelector('div.entry > div.expando')
-    const newId = await hashCode(
-      postNode.hasAttribute('reddit-uncensored-cached-id')
-        ? postNode.getAttribute('reddit-uncensored-cached-id')
-        : postNode.id !== 'undefined'
-          ? postNode.id
-          : Math.random().toString(),
-    )
+    const replacementId = Math.random().toString(36).slice(2)
 
     let replaceTarget
     if (expandoNode) {
       replaceTarget = expandoNode
     } else {
       let newContainer = document.createElement('div')
-      newContainer.id = newId
+      newContainer.id = replacementId
       postNode.querySelector('div.entry > div.top-matter').after(newContainer)
 
       replaceTarget = newContainer
@@ -604,7 +582,7 @@ import DOMPurify from 'dompurify'
 
     const brokenExpandoBtn = postNode.querySelector('.expando-button')
     if (brokenExpandoBtn) {
-      await replaceExpandoButton(brokenExpandoBtn, newId)
+      await replaceExpandoButton(brokenExpandoBtn, replacementId)
     }
 
     const sanitizedHtml = DOMPurify.sanitize(postSelftextHtml, {
@@ -619,11 +597,11 @@ import DOMPurify from 'dompurify'
         border: '2px solid red',
       },
       'usertext-body',
-      newId,
+      replacementId,
       'expando',
     )
 
-    const p = document.getElementById(newId)
+    const p = document.getElementById(replacementId)
     extraPostItems.forEach(item => {
       p.insertBefore(item, p.lastChild)
     })
@@ -992,4 +970,4 @@ import DOMPurify from 'dompurify'
   await observeNewComments()
 })()
   .then(() => {})
-  .catch(e => console.error('error from main:', e))
+  .catch(e => console.error('error in reddit-uncensored content script:', e))

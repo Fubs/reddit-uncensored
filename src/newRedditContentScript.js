@@ -1,21 +1,30 @@
 import DOMPurify from 'dompurify'
 import { MsgTypeEnum } from './background.js'
-;(function () {
+;(async function () {
   'use strict'
 
   let fetchTimer = null
+  let shouldAutoExpand = null
 
+  /**
+   * @type {Map<string, HTMLElement>}
+   */
   const idToCommentNode = new Map()
+
+  /**
+   * @type {Map<string, HTMLElement>}
+   */
   const idToUsertextNode = new Map()
+
+  /**
+   * @type {Set<string>}
+   */
   const scheduledCommentIds = new Set()
+
+  /**
+   * @type {Set<string>}
+   */
   const processedCommentIds = new Set()
-
-  let shouldAutoExpand = true
-
-  // Load settings
-  chrome.storage.local.get(['expandCollapsedComments'], result => {
-    shouldAutoExpand = result.expandCollapsedComments ?? true
-  })
 
   /**
    * Holds ids of comments that have missing fields and need to be fetched
@@ -46,7 +55,7 @@ import { MsgTypeEnum } from './background.js'
   /**
    * @param {string} id
    */
-  function removeCommentIdFromBuckets(id) {
+  async function removeCommentIdFromBuckets(id) {
     missingFieldBuckets.author.delete(id)
     missingFieldBuckets.body.delete(id)
     missingFieldBuckets.all.delete(id)
@@ -55,8 +64,9 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Expands a comment node.
    * @param {Element} commentNode
+   * @returns {Promise<boolean>}
    */
-  function expandCommentNode(commentNode) {
+  async function expandCommentNode(commentNode) {
     if (!shouldAutoExpand && commentNode.hasAttribute('collapsed')) {
       // Don't auto-expand if setting is disabled
       return false
@@ -64,7 +74,6 @@ import { MsgTypeEnum } from './background.js'
 
     commentNode.removeAttribute('collapsed')
     commentNode.classList.remove('collapsed')
-    commentNode.classList.add('expanded-by-reddit-uncensored-extension')
     return true
   }
 
@@ -72,9 +81,9 @@ import { MsgTypeEnum } from './background.js'
    * Checks if a string is a valid reddit id.
    * Reddit assigns a unique id to every post and comment
    * @param {string} redditId
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isValidRedditId(redditId) {
+  async function isValidRedditId(redditId) {
     return /^[a-zA-Z0-9]{1,7}$/.test(redditId)
   }
 
@@ -83,58 +92,58 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} element
    * @param {Object} styles
    */
-  function applyStyles(element, styles) {
+  async function applyStyles(element, styles) {
     Object.assign(element.style, styles)
   }
 
   /**
    * Finds all comment nodes
-   * @returns {NodeListOf<Element>}
+   * @returns {Promise<NodeListOf<Element>>}
    */
-  function getCommentNodes() {
+  async function getCommentNodes() {
     return document.querySelectorAll('shreddit-comment')
   }
 
   /**
    * Finds any new comments that have not yet been processed
-   * @returns {NodeListOf<Element>}
+   * @returns {Promise<NodeListOf<Element>>}
    */
-  function getNewCommentNodes() {
+  async function getNewCommentNodes() {
     return document.querySelectorAll('shreddit-comment:not([undeleted])')
   }
 
   /**
    * Finds the post node
-   * @returns {Element}
+   * @returns {Promise<Element>}
    */
-  function getPostNode() {
+  async function getPostNode() {
     return document.querySelector('shreddit-post')
   }
 
   /**
    * Finds the title node of a post
    * @param {HTMLElement} postNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLLinkElement>}
    */
-  function getPostTitleNode(postNode) {
+  async function getPostTitleNode(postNode) {
     return postNode.querySelector('h1[slot="title"]')
   }
 
   /**
    * Finds the author node of a post
    * @param {HTMLElement} postNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLElement>}
    */
-  function getPostAuthorNode(postNode) {
+  async function getPostAuthorNode(postNode) {
     return postNode.querySelector('faceplate-tracker[noun="user_profile"]')
   }
 
   /**
    * Finds the author node of a comment
    * @param {HTMLElement} commentNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLElement>}
    */
-  function getCommentAuthorNode(commentNode) {
+  async function getCommentAuthorNode(commentNode) {
     const deletedAuthor = commentNode.querySelector('faceplate-tracker[noun="comment_deleted_author"]')
     if (deletedAuthor) {
       return deletedAuthor
@@ -144,29 +153,29 @@ import { MsgTypeEnum } from './background.js'
   }
 
   /**
-   * Finds the usertextnode of a comment
+   * Finds the usertext node of a comment
    * @param {HTMLElement} commentNode
-   * @returns {HTMLElement}
+   * @returns {Promise<HTMLElement>}
    */
-  function getCommentUsertextNode(commentNode) {
+  async function getCommentUsertextNode(commentNode) {
     return commentNode.querySelector('div.md > div.inline-block > p')
   }
 
   /**
    * Determines which fields of a post are missing
    * @param {HTMLElement} postNode
-   * @returns {Set<string>}
+   * @returns {Promise<Set<string>>}
    */
-  function getMissingPostFields(postNode) {
+  async function getMissingPostFields(postNode) {
     const missingFields = new Set()
 
-    if (isPostAuthorDeleted(postNode)) {
+    if (await isPostAuthorDeleted(postNode)) {
       missingFields.add('author')
     }
-    if (isPostBodyDeleted(postNode)) {
+    if (await isPostBodyDeleted(postNode)) {
       missingFields.add('selftext')
     }
-    if (isPostTitleDeleted(postNode)) {
+    if (await isPostTitleDeleted(postNode)) {
       missingFields.add('title')
     }
 
@@ -176,13 +185,13 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Check if the comment body is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isCommentBodyDeleted(commentNode) {
+  async function isCommentBodyDeleted(commentNode) {
     if (commentNode.hasAttribute('deleted') || commentNode.getAttribute('is-comment-deleted') === 'true') {
       return true
     } else {
-      const usertextNode = getCommentUsertextNode(commentNode)
+      const usertextNode = await getCommentUsertextNode(commentNode)
       if (usertextNode) {
         return DELETED_TEXT.has(usertextNode.textContent)
       }
@@ -194,9 +203,9 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Check if the comment author is deleted
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isCommentAuthorDeleted(commentNode) {
+  async function isCommentAuthorDeleted(commentNode) {
     return (
       DELETED_TEXT.has(commentNode.getAttribute('author')) || commentNode.getAttribute('is-author-deleted') === 'true'
     )
@@ -205,9 +214,9 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Check if the post body is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostBodyDeleted(postNode) {
+  async function isPostBodyDeleted(postNode) {
     return (
       !!postNode.querySelector('div[slot="post-removed-banner"]') ||
       (!postNode.querySelector('div[slot="text-body"]') && !postNode.querySelector('div[slot="post-media-container"]'))
@@ -217,28 +226,28 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Check if the comment author is deleted and the comment body is not
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isOnlyCommentAuthorDeleted(commentNode) {
-    return isCommentAuthorDeleted(commentNode) && !isCommentBodyDeleted(commentNode)
+  async function isOnlyCommentAuthorDeleted(commentNode) {
+    return (await isCommentAuthorDeleted(commentNode)) && !(await isCommentBodyDeleted(commentNode))
   }
 
   /**
    * Check if the comment body is deleted and the comment author is not
    * @param {HTMLElement} commentNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isOnlyCommentBodyDeleted(commentNode) {
-    return !isCommentAuthorDeleted(commentNode) && isCommentBodyDeleted(commentNode)
+  async function isOnlyCommentBodyDeleted(commentNode) {
+    return !(await isCommentAuthorDeleted(commentNode)) && (await isCommentBodyDeleted(commentNode))
   }
 
   /**
    * Check if the post author is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostAuthorDeleted(postNode) {
-    const postAuthorNode = getPostAuthorNode(postNode)
+  async function isPostAuthorDeleted(postNode) {
+    const postAuthorNode = await getPostAuthorNode(postNode)
 
     if (DELETED_TEXT.has(postNode.getAttribute('author'))) {
       return true
@@ -252,9 +261,9 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Check if the post title is deleted
    * @param {HTMLElement} postNode
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  function isPostTitleDeleted(postNode) {
+  async function isPostTitleDeleted(postNode) {
     const postTitle = postNode.getAttribute('post-title')
     if (postTitle) {
       return DELETED_TEXT.has(postTitle)
@@ -265,7 +274,7 @@ import { MsgTypeEnum } from './background.js'
    * Replace a comment with some text to indicate that it is loading
    * @param {string} commentId
    */
-  function showLoadingIndicator(commentId) {
+  async function showLoadingIndicator(commentId) {
     if (!idToUsertextNode.has(commentId)) return
     const usertextNode = idToUsertextNode.get(commentId)
 
@@ -277,7 +286,7 @@ import { MsgTypeEnum } from './background.js'
       loadingDiv.appendChild(loadingInlineBlock)
       const loadingP = document.createElement('p')
       loadingP.textContent = 'Loading from archive...'
-      applyStyles(loadingP, {
+      await applyStyles(loadingP, {
         color: '#666',
         fontStyle: 'italic',
       })
@@ -292,11 +301,11 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Finds the id of a comment
    * @param {HTMLElement} commentNode
-   * @returns {string}
+   * @returns {Promise<string>}
    */
-  function getCommentId(commentNode) {
+  async function getCommentId(commentNode) {
     const thingId = commentNode.getAttribute('thingid').replace('t1_', '')
-    if (isValidRedditId(thingId)) {
+    if (await isValidRedditId(thingId)) {
       return thingId
     }
   }
@@ -304,15 +313,15 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Finds the id of a post
    * @param {HTMLElement} postNode
-   * @returns {string}
+   * @returns {Promise<string>}
    */
-  function getPostId(postNode) {
+  async function getPostId(postNode) {
     const postId = postNode.getAttribute('id').replace('t3_', '')
-    if (isValidRedditId(postId)) {
+    if (await isValidRedditId(postId)) {
       return postId
     } else {
       const matches = window.location.href.match(/\/comments\/([a-zA-Z0-9]{0,7})/)
-      if (matches && isValidRedditId(matches[1])) {
+      if (matches && (await isValidRedditId(matches[1]))) {
         return matches[1]
       }
     }
@@ -323,7 +332,7 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} authorNode
    * @param {string} author
    */
-  function replaceAuthorNode(authorNode, author) {
+  async function replaceAuthorNode(authorNode, author) {
     let newAuthorElement
 
     if (!DELETED_TEXT.has(author)) {
@@ -335,7 +344,7 @@ import { MsgTypeEnum } from './background.js'
       newAuthorElement.textContent = '[not found in archive]'
     }
 
-    applyStyles(newAuthorElement, { color: 'salmon' })
+    await applyStyles(newAuthorElement, { color: 'salmon' })
     authorNode.replaceWith(newAuthorElement)
   }
 
@@ -344,7 +353,7 @@ import { MsgTypeEnum } from './background.js'
    * @param {string} htmlContent
    * @param {Object} styles
    */
-  function replaceContentBody(containerNode, htmlContent, styles = {}) {
+  async function replaceContentBody(containerNode, htmlContent, styles = {}) {
     const parser = new DOMParser()
     const correctHtmlStr = htmlContent ? htmlContent : '<div slot="text-body">[not found in archive]</div>'
     let parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
@@ -362,7 +371,7 @@ import { MsgTypeEnum } from './background.js'
       newContent.appendChild(parsedHtml.body.firstChild)
     }
 
-    applyStyles(newContent, {
+    await applyStyles(newContent, {
       outline: 'salmon solid',
       display: 'inline-block',
       padding: '.4rem',
@@ -379,15 +388,15 @@ import { MsgTypeEnum } from './background.js'
    * @param {string} postSelftextHtml
    * @param {string} postTitleText
    */
-  function updatePostNode(postNode, postAuthorText, postSelftextHtml, postTitleText) {
+  async function updatePostNode(postNode, postAuthorText, postSelftextHtml, postTitleText) {
     if (postAuthorText) {
-      updatePostAuthor(postNode, postAuthorText)
+      await updatePostAuthor(postNode, postAuthorText)
     }
     if (postSelftextHtml) {
-      updatePostBody(postNode, postSelftextHtml)
+      await updatePostBody(postNode, postSelftextHtml)
     }
     if (postTitleText) {
-      updatePostTitle(postNode, postTitleText)
+      await updatePostTitle(postNode, postTitleText)
     }
   }
 
@@ -396,10 +405,10 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} postNode
    * @param {string} postAuthorText
    */
-  function updatePostAuthor(postNode, postAuthorText) {
-    const postAuthorNode = getPostAuthorNode(postNode)
-    if (isPostAuthorDeleted(postNode) && postAuthorNode) {
-      replaceAuthorNode(postAuthorNode, postAuthorText)
+  async function updatePostAuthor(postNode, postAuthorText) {
+    const postAuthorNode = await getPostAuthorNode(postNode)
+    if ((await isPostAuthorDeleted(postNode)) && postAuthorNode) {
+      await replaceAuthorNode(postAuthorNode, postAuthorText)
     }
   }
 
@@ -408,9 +417,9 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} postNode
    * @param {string} postTitleText
    */
-  function updatePostTitle(postNode, postTitleText) {
-    const postTitleNode = getPostTitleNode(postNode)
-    if (isPostTitleDeleted(postNode) && postTitleText) {
+  async function updatePostTitle(postNode, postTitleText) {
+    const postTitleNode = await getPostTitleNode(postNode)
+    if ((await isPostTitleDeleted(postNode)) && postTitleText) {
       const newTitle = document.createElement('h1')
       newTitle.setAttribute('slot', 'title')
       postTitleNode.classList.forEach(className => {
@@ -418,7 +427,7 @@ import { MsgTypeEnum } from './background.js'
       })
       newTitle.textContent = postTitleText
 
-      applyStyles(newTitle, {
+      await applyStyles(newTitle, {
         outline: 'salmon solid',
         display: 'inline-block',
         padding: '.3rem .3rem .4rem .5rem',
@@ -436,13 +445,13 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} postNode
    * @param {string} dirtyPostSelftextHtml
    */
-  function updatePostBody(postNode, dirtyPostSelftextHtml) {
+  async function updatePostBody(postNode, dirtyPostSelftextHtml) {
     const postSelftextHtml = DOMPurify.sanitize(dirtyPostSelftextHtml, {
       USE_PROFILES: { html: true },
     })
     if (!postSelftextHtml) return
 
-    if (!isPostBodyDeleted(postNode)) return
+    if (!(await isPostBodyDeleted(postNode))) return
 
     let replaceTarget = postNode.querySelector('div[slot="post-removed-banner"]')
 
@@ -453,7 +462,7 @@ import { MsgTypeEnum } from './background.js'
       replaceTarget = newReplaceTarget
     }
 
-    replaceContentBody(replaceTarget, postSelftextHtml, { marginTop: '.6rem' })
+    await replaceContentBody(replaceTarget, postSelftextHtml, { marginTop: '.6rem' })
   }
 
   /**
@@ -463,12 +472,12 @@ import { MsgTypeEnum } from './background.js'
    * @param {string} author
    * @param {string} usertext
    */
-  function updateCommentNode(commentNode, id, author, usertext) {
+  async function updateCommentNode(commentNode, id, author, usertext) {
     if (author) {
-      updateCommentAuthor(commentNode, author)
+      await updateCommentAuthor(commentNode, author)
     }
     if (usertext) {
-      updateCommentBody(commentNode, usertext)
+      await updateCommentBody(commentNode, usertext)
     }
   }
 
@@ -477,11 +486,11 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} commentNode
    * @param {string} author
    */
-  function updateCommentAuthor(commentNode, author) {
+  async function updateCommentAuthor(commentNode, author) {
     if (!author) return
-    const authorNode = getCommentAuthorNode(commentNode)
+    const authorNode = await getCommentAuthorNode(commentNode)
     if (authorNode) {
-      replaceAuthorNode(authorNode, author)
+      await replaceAuthorNode(authorNode, author)
     }
   }
 
@@ -490,56 +499,71 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} commentNode
    * @param {string} dirtyUsertext
    */
-  function updateCommentBody(commentNode, dirtyUsertext) {
+  async function updateCommentBody(commentNode, dirtyUsertext) {
     const usertext = DOMPurify.sanitize(dirtyUsertext, {
       USE_PROFILES: { html: true },
     })
     if (!usertext) return
-    const usertextNode = getCommentUsertextNode(commentNode)
+    const usertextNode = await getCommentUsertextNode(commentNode)
     if (!usertextNode) return
 
     const usertextContainer = usertextNode.parentElement.parentElement
     if (usertextContainer) {
-      replaceContentBody(usertextContainer, usertext)
+      await replaceContentBody(usertextContainer, usertext)
     }
   }
 
   /**
    * Handle any comments that were loaded before the mutation observer was initialized
    */
-  function processExistingComments() {
-    const commentNodes = getCommentNodes()
+  async function processExistingComments() {
+    const commentNodes = await getCommentNodes()
     commentNodes.forEach(commentNode => {
       processCommentNode(commentNode)
     })
 
-    scheduleFetch()
+    await scheduleFetch()
   }
 
   /**
-   * Debounce a function
+   * Throttles a function call
    * @param {Function} func
-   * @param {number} wait
+   * @param {number} limit
+   * @returns {Function}
    */
-  function debounce(func, wait) {
-    let timeout
+  function throttle(func, limit) {
+    let lastFunc
+    let lastRan
     return function (...args) {
-      clearTimeout(timeout)
-      timeout = setTimeout(() => func.apply(this, args), wait)
+      if (!lastRan) {
+        func.apply(this, args)
+        lastRan = Date.now()
+      } else {
+        clearTimeout(lastFunc)
+        lastFunc = setTimeout(
+          () => {
+            if (Date.now() - lastRan >= limit) {
+              func.apply(this, args)
+              lastRan = Date.now()
+            }
+          },
+          limit - (Date.now() - lastRan),
+        )
+      }
     }
   }
 
   /**
    * Loads a mutation observer to watch for new comments
    */
-  function observeNewComments() {
-    const debounceProcess = debounce(() => {
+  async function observeNewComments() {
+    const throttleProcess = throttle(() => {
       processNewComments()
       scheduleFetch()
     }, 100)
 
     const observer = new MutationObserver(() => {
-      debounceProcess()
+      throttleProcess()
     })
 
     observer.observe(document.body, {
@@ -550,8 +574,8 @@ import { MsgTypeEnum } from './background.js'
     })
   }
 
-  function processNewComments() {
-    const commentNodes = getNewCommentNodes()
+  async function processNewComments() {
+    const commentNodes = await getNewCommentNodes()
     commentNodes.forEach(processCommentNode)
   }
 
@@ -559,8 +583,8 @@ import { MsgTypeEnum } from './background.js'
    * Process a single comment node, adding it to one of the missing field buckets if any portion was deleted
    * @param {HTMLElement} commentNode
    */
-  function processCommentNode(commentNode) {
-    const commentId = getCommentId(commentNode)
+  async function processCommentNode(commentNode) {
+    const commentId = await getCommentId(commentNode)
     if (!commentId) return
 
     if (!idToCommentNode.has(commentId)) {
@@ -568,10 +592,10 @@ import { MsgTypeEnum } from './background.js'
     }
 
     if (!idToUsertextNode.has(commentId)) {
-      idToUsertextNode.set(commentId, getCommentUsertextNode(commentNode))
+      idToUsertextNode.set(commentId, await getCommentUsertextNode(commentNode))
     }
 
-    if (!expandCommentNode(commentNode)) {
+    if (!(await expandCommentNode(commentNode))) {
       // Comment wasn't expanded, don't process it yet
       return
     }
@@ -579,19 +603,19 @@ import { MsgTypeEnum } from './background.js'
     if (scheduledCommentIds.has(commentId)) return
     if (processedCommentIds.has(commentId)) return
 
-    const isBodyDeleted = isCommentBodyDeleted(commentNode)
-    const isAuthorDeleted = isCommentAuthorDeleted(commentNode)
+    const isBodyDeleted = await isCommentBodyDeleted(commentNode)
+    const isAuthorDeleted = await isCommentAuthorDeleted(commentNode)
 
     if (!isBodyDeleted && !isAuthorDeleted) return
 
     // Add loading indicator when scheduling a fetch
     if (isBodyDeleted) {
-      showLoadingIndicator(commentId)
+      await showLoadingIndicator(commentId)
     }
 
-    if (isOnlyCommentAuthorDeleted(commentNode)) {
+    if (await isOnlyCommentAuthorDeleted(commentNode)) {
       missingFieldBuckets.author.add(commentId)
-    } else if (isOnlyCommentBodyDeleted(commentNode)) {
+    } else if (await isOnlyCommentBodyDeleted(commentNode)) {
       missingFieldBuckets.body.add(commentId)
     } else {
       missingFieldBuckets.all.add(commentId)
@@ -604,7 +628,7 @@ import { MsgTypeEnum } from './background.js'
   /**
    * After a delay, dispatch any pending comment fetches
    */
-  function scheduleFetch() {
+  async function scheduleFetch() {
     if (!fetchTimer) {
       fetchTimer = setTimeout(() => {
         fetchPendingComments()
@@ -615,7 +639,7 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Dispatch pending comment fetches
    */
-  function fetchPendingComments() {
+  async function fetchPendingComments() {
     fetchTimer = null
 
     const fetchPromises = []
@@ -656,7 +680,7 @@ import { MsgTypeEnum } from './background.js'
    * @param {String[]} commentIds
    * @param {number} type
    */
-  function handleResponse(response, commentIds, type) {
+  async function handleResponse(response, commentIds, type) {
     if (response && response.commentsData) {
       response.commentsData
         .map((k, i) => [k, commentIds[i]])
@@ -708,7 +732,7 @@ import { MsgTypeEnum } from './background.js'
           commentIds: commentIdsArray,
         })
 
-        handleResponse(response, commentIdsArray, msgType)
+        await handleResponse(response, commentIdsArray, msgType)
       } catch (error) {
         const errorTypes = {
           [MsgTypeEnum.COMMENTS_AUTHOR]: 'authors',
@@ -721,8 +745,6 @@ import { MsgTypeEnum } from './background.js'
 
     commentIdsArray.forEach(n => {
       processedCommentIds.add(n)
-      idToCommentNode.delete(n)
-      idToUsertextNode.delete(n)
     })
   }
 
@@ -731,8 +753,8 @@ import { MsgTypeEnum } from './background.js'
    * @param {HTMLElement} postNode
    */
   async function fetchPostData(postNode) {
-    const postId = getPostId(postNode)
-    const missingFields = getMissingPostFields(postNode)
+    const postId = await getPostId(postNode)
+    const missingFields = await getMissingPostFields(postNode)
 
     if (missingFields.size === 0) {
       return
@@ -756,7 +778,7 @@ import { MsgTypeEnum } from './background.js'
             ? "<div class='md'>[not found in archive]</div>"
             : undefined
 
-        updatePostNode(postNode, author, selftext, title)
+        await updatePostNode(postNode, author, selftext, title)
       } else {
         console.error('No response or postData from background script', response)
       }
@@ -768,17 +790,21 @@ import { MsgTypeEnum } from './background.js'
   /**
    * Calls fetchPostData to fetch and replace any missing elements of the post node.
    */
-  function processMainPost() {
-    const postNode = getPostNode()
-
-    fetchPostData(postNode)
-      .then(() => {})
-      .catch(e => {
-        console.error('error:', e)
-      })
+  async function processMainPost() {
+    const postNode = await getPostNode()
+    await fetchPostData(postNode)
   }
 
-  processMainPost()
-  processExistingComments()
-  observeNewComments()
+  async function loadSettings() {
+    chrome.storage.local.get(['expandCollapsedComments'], result => {
+      shouldAutoExpand = result.expandCollapsedComments ?? true
+    })
+  }
+
+  await loadSettings()
+  await processMainPost()
+  await processExistingComments()
+  await observeNewComments()
 })()
+  .then(() => {})
+  .catch(e => console.error('error in reddit-uncensored content script:', e))
