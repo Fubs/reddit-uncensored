@@ -4,79 +4,43 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    adm-zip:
-      specifier: ^0.5.16
-      version: 0.5.16
-    copy-webpack-plugin:
-      specifier: ^12.0.2
-      version: 12.0.2
-    css-loader:
-      specifier: ^7.1.2
-      version: 7.1.2
-    dompurify:
-      specifier: ^3.2.3
-      version: 3.2.3
-    dotenv-webpack:
-      specifier: ^8.1.0
-      version: 8.1.0
-    file-loader:
-      specifier: ^6.2.0
-      version: 6.2.0
-    mini-css-extract-plugin:
-      specifier: ^2.9.2
-      version: 2.9.2
-    prettier:
-      specifier: ^3.4.2
-      version: 3.4.2
-    webpack:
-      specifier: ^5.97.1
-      version: 5.97.1
-    webpack-cli:
-      specifier: ^6.0.1
-      version: 6.0.1
-    webpack-merge:
-      specifier: ^6.0.1
-      version: 6.0.1
-
 importers:
 
   .:
     dependencies:
       dompurify:
-        specifier: 'catalog:'
+        specifier: ^3.2.3
         version: 3.2.3
     devDependencies:
       adm-zip:
-        specifier: 'catalog:'
+        specifier: ^0.5.16
         version: 0.5.16
       copy-webpack-plugin:
-        specifier: 'catalog:'
+        specifier: ^12.0.2
         version: 12.0.2(webpack@5.97.1)
       css-loader:
-        specifier: 'catalog:'
+        specifier: ^7.1.2
         version: 7.1.2(webpack@5.97.1)
       dotenv-webpack:
-        specifier: 'catalog:'
+        specifier: ^8.1.0
         version: 8.1.0(webpack@5.97.1)
       file-loader:
-        specifier: 'catalog:'
+        specifier: ^6.2.0
         version: 6.2.0(webpack@5.97.1)
       mini-css-extract-plugin:
-        specifier: 'catalog:'
+        specifier: ^2.9.2
         version: 2.9.2(webpack@5.97.1)
       prettier:
-        specifier: 'catalog:'
+        specifier: ^3.4.2
         version: 3.4.2
       webpack:
-        specifier: 'catalog:'
+        specifier: ^5.97.1
         version: 5.97.1(webpack-cli@6.0.1)
       webpack-cli:
-        specifier: 'catalog:'
+        specifier: ^6.0.1
         version: 6.0.1(webpack@5.97.1)
       webpack-merge:
-        specifier: 'catalog:'
+        specifier: ^6.0.1
         version: 6.0.1
 
   chrome: {}
