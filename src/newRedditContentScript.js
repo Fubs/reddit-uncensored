@@ -36,21 +36,6 @@ import { RedditContentProcessor } from './common.js'
       }
     }
 
-    async expandCommentNode(commentNode) {
-      // Don't auto-expand if setting is disabled, or if the comment was already expanded once by this script.
-      // The 'depth' !== '0' check is to fix an edge case when viewing of a single-comment-thread page with a deleted root comment
-      if (
-        (!this.shouldAutoExpand && commentNode.hasAttribute('collapsed')) ||
-        (this.autoExpandedCommentIds.has(commentNode) && commentNode.getAttribute('depth') !== '0')
-      ) {
-        return false
-      }
-
-      commentNode.removeAttribute('collapsed')
-      commentNode.classList.remove('collapsed')
-      return true
-    }
-
     async isCommentBodyDeleted(commentNode) {
       if (commentNode.hasAttribute('deleted') || commentNode.getAttribute('is-comment-deleted') === 'true') {
         return true
@@ -79,23 +64,20 @@ import { RedditContentProcessor } from './common.js'
     async showLoadingIndicator(commentId) {
       if (!this.idToUsertextNode.has(commentId)) return
       const usertextNode = this.idToUsertextNode.get(commentId)
-
       if (usertextNode) {
-        const loadingDiv = document.createElement('div')
-        loadingDiv.className = 'md loading-indicator'
-        const loadingInlineBlock = document.createElement('div')
-        loadingInlineBlock.className = 'inline-block'
-        loadingDiv.appendChild(loadingInlineBlock)
-        const loadingP = document.createElement('p')
-        loadingP.textContent = 'Loading from archive...'
-        await this.applyStyles(loadingP, {
-          color: '#666',
-          fontStyle: 'italic',
-        })
-        loadingInlineBlock.appendChild(loadingP)
+        const loadingIndicatorHTML = `
+        <div class="md loading-indicator">
+          <div class="inline-block">
+            <p style="color: #666; font-style: italic">Loading from archive...</p>
+          </div>
+        </div>`
+
+        const parser = new DOMParser()
+        const loadingIndicator = parser.parseFromString(loadingIndicatorHTML, 'text/html').body.children[0]
+
         const container = usertextNode.closest('div.md')
         if (container) {
-          container.replaceWith(loadingDiv)
+          container.replaceWith(loadingIndicator)
         }
       }
     }
@@ -269,10 +251,42 @@ import { RedditContentProcessor } from './common.js'
         display: 'inline-block',
         padding: '.4rem',
         width: 'fit-content',
+        marginBottom: '.4rem',
         ...styles,
       })
 
       containerNode.replaceWith(newContent)
+    }
+
+    async addMetadataButton(commentNode) {
+      const commentId = await this.getCommentId(commentNode)
+      const archiveUrl = `https://arctic-shift.photon-reddit.com/api/comments/ids?ids=${commentId}`
+      const newId = commentId + '-metadata'
+      const buttonHTML = `
+      <li rpl="" class="relative list-none mt-0 " role="presentation">
+        <div id="${newId}" aria-disabled="false" tabindex="0" class="flex justify-between relative px-md gap-[0.5rem] text-secondary hover:text-secondary-hover active:bg-interactive-pressed hover:bg-neutral-background-hover hover:no-underline cursor-pointer  py-xs  -outline-offset-1 " style="padding-right:16px">
+          <a href="${archiveUrl}" target="_blank" rel="noopener noreferrer">
+            <span class="flex items-center gap-xs min-w-0 shrink">
+              <span class="flex flex-col justify-center min-w-0 shrink py-[var(--rem6)]">
+                <span class="text-14">
+                  Open archive data
+                </span>
+              </span>
+            </span>
+          </a>
+        </div>
+      </li>`
+
+      const overflowSelector = `shreddit-overflow-menu[comment-id="t1_${commentId}"]`
+      let dropdownMenu = commentNode.querySelector(overflowSelector)?.shadowRoot?.querySelector('faceplate-dropdown-menu > faceplate-menu')
+      if (!dropdownMenu) {
+        console.warn("Couldn't find overflow menu for comment", commentId)
+        return
+      }
+
+      const parser = new DOMParser()
+      const parsedHtml = parser.parseFromString(buttonHTML, 'text/html')
+      dropdownMenu.appendChild(DOMPurify.sanitize(parsedHtml.body.childNodes[0], { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
     }
   }
 

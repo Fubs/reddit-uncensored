@@ -19,6 +19,7 @@ import { RedditContentProcessor } from './common.js'
         await this.applyStyles(parsedHtml.body.childNodes[0], {
           color: 'gray',
           fontStyle: 'italic',
+          padding: '0.4rem 0.4rem 0.2rem 0.4rem',
         })
         const container = usertextNode.closest('div.md-container')
         if (container) {
@@ -132,26 +133,6 @@ import { RedditContentProcessor } from './common.js'
       if (grayed_div) {
         grayed_div.classList.remove('grayed')
       }
-    }
-
-    async expandCommentNode(commentNode) {
-      // Don't auto-expand if setting is disabled, or if the comment was already expanded once by this script.
-      // The 'depth' !== '0' check is to fix an edge case when viewing of a single-comment-thread page with a deleted root comment
-      if (
-        (!this.shouldAutoExpand && commentNode.classList.contains('collapsed')) ||
-        (this.autoExpandedCommentIds.has(commentNode) && commentNode.getAttribute('depth') !== '0')
-      ) {
-        return false
-      }
-
-      commentNode.classList.remove('collapsed')
-      commentNode.classList.add('noncollapsed')
-
-      if (this.shouldAutoExpand) {
-        this.autoExpandedCommentIds.add(commentNode)
-      }
-
-      return true
     }
 
     async getPostNode() {
@@ -309,7 +290,6 @@ import { RedditContentProcessor } from './common.js'
         await this.applyStyles(newTitle, {
           border: '2px solid #e85646',
           display: 'inline-block',
-          //margin: ".3rem",
           padding: '.3rem',
           width: 'fit-content',
         })
@@ -440,16 +420,19 @@ import { RedditContentProcessor } from './common.js'
       if (!commentID) return
 
       const flatListButtons = commentNode.querySelector('ul.flat-list.buttons')
-      if (!flatListButtons) return
+      if (!flatListButtons) {
+        console.warn('Failed to add metadata button for comment', commentID)
+      }
 
       const li = document.createElement('li')
       const a = document.createElement('a')
       a.href = `https://arctic-shift.photon-reddit.com/api/comments/ids?ids=${commentID}&md2html=true`
-      a.textContent = 'metadata'
+      a.textContent = 'open archive data'
       a.className = 'metadata-button'
-
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
       li.appendChild(a)
-      flatListButtons.appendChild(li)
+      flatListButtons.appendChild(DOMPurify.sanitize(li, { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
     }
   }
 

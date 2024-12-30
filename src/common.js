@@ -12,12 +12,20 @@ export class RedditContentProcessor {
     this.cachedPostId = null
     this.autoExpandedCommentIds = new Set()
 
+    /**
+     * Sets of comment IDs that are missing a field and need to be fetched
+     * @type {{author: Set<string>, body: Set<string>, all: Set<string>}}
+     */
     this.missingFieldBuckets = {
       author: new Set(),
       body: new Set(),
       all: new Set(),
     }
 
+    /**
+     * Strings that indicate a comment has been deleted
+     * @type {Set<string>}
+     */
     this.DELETED_TEXT = new Set([
       '[deleted]',
       '[deleted by user]',
@@ -114,6 +122,46 @@ export class RedditContentProcessor {
     })
   }
 
+  /**
+   * Expands a comment node.
+   * Return value:
+   *     True -> comment was expanded by this function, or was already expanded
+   *     False -> comment remains collapsed
+   * @param {Element} commentNode
+   * @returns {Promise<boolean>}
+   */
+  async expandCommentNode(commentNode) {
+    // Don't auto-expand if setting is disabled, or if the comment was already expanded once by this script.
+    // The 'depth' !== '0' check is to fix an edge case when viewing of a single-comment-thread page with a deleted root comment
+    if (
+      (!this.shouldAutoExpand && (commentNode.hasAttribute('collapsed') || commentNode.classList.contains('collapsed'))) ||
+      (this.autoExpandedCommentIds.has(this.getCommentId(commentNode)) && commentNode.getAttribute('depth') !== '0')
+    ) {
+      return false
+    }
+
+    if (commentNode.hasAttribute('collapsed')) {
+      // hasAttribute('collapsed') indicates new reddit layout
+      commentNode.removeAttribute('collapsed')
+      commentNode.classList.remove('collapsed')
+    } else if (commentNode.classList.contains('collapsed')) {
+      // !hasAttribute('collapsed') && classList.contains('collapsed') indicates old reddit layout
+      commentNode.classList.remove('collapsed')
+      commentNode.classList.add('noncollapsed')
+    }
+
+    if (this.shouldAutoExpand) {
+      this.autoExpandedCommentIds.add(this.getCommentId(commentNode))
+    }
+    return true
+  }
+
+  /**
+   * Returns a promise that, when resolved, will send a message to the background script to fetch data for a batch of comments
+   * @param msgType
+   * @param commentIds
+   * @returns {Promise<void>}
+   */
   async fetchCommentBatch(msgType, ...commentIds) {
     const commentIdsArray = Array.from(commentIds)
       .flat()
@@ -146,9 +194,9 @@ export class RedditContentProcessor {
 
   async fetchPendingComments() {
     if (this.missingFieldBuckets.author.size === 0 && this.missingFieldBuckets.body.size === 0 && this.missingFieldBuckets.all.size === 0) return
-    this.fetchTimer = null
 
     const fetchPromises = []
+    let fetchCount = 0
     const removeCommentIds = commentIds => {
       commentIds.forEach(id => this.removeCommentIdFromBuckets(id))
     }
@@ -156,27 +204,30 @@ export class RedditContentProcessor {
     if (this.missingFieldBuckets.author.size > 0) {
       const authorIds = Array.from(this.missingFieldBuckets.author)
       fetchPromises.push(this.fetchCommentBatch(MsgType.COMMENTS_AUTHOR, authorIds))
+      fetchCount += authorIds.length
       await removeCommentIds(authorIds)
     }
 
     if (this.missingFieldBuckets.body.size > 0) {
       const bodyIds = Array.from(this.missingFieldBuckets.body)
       fetchPromises.push(this.fetchCommentBatch(MsgType.COMMENTS_BODY, bodyIds))
+      fetchCount += bodyIds.length
       await removeCommentIds(bodyIds)
     }
 
     if (this.missingFieldBuckets.all.size > 0) {
       const allIds = Array.from(this.missingFieldBuckets.all)
       fetchPromises.push(this.fetchCommentBatch(MsgType.COMMENTS_ALL, allIds))
+      fetchCount += allIds.length
       await removeCommentIds(allIds)
     }
 
     Promise.all(fetchPromises)
       .then(() => {
-        // All fetches completed
+        console.log('Fetched archive data for', fetchCount, 'comments')
       })
       .catch(error => {
-        console.error('Error fetching comment batches:', error)
+        console.error('Error fetching archive data:', error)
       })
   }
 
@@ -194,6 +245,11 @@ export class RedditContentProcessor {
     await this.scheduleFetch()
   }
 
+  /**
+   * Reads a comment, determines if it is missing a field, and if so adds it to the appropriate bucket
+   * @param {Element} commentNode
+   * @returns {Promise<void>}
+   */
   async processCommentNode(commentNode) {
     const commentId = await this.getCommentId(commentNode)
     if (!commentId) return
@@ -219,7 +275,8 @@ export class RedditContentProcessor {
 
     if (!isBodyDeleted && !isAuthorDeleted) return
 
-    // Add loading indicator when scheduling a fetch
+    // Add loading indicator and metadata button to comments with missing data
+    await this.addMetadataButton(commentNode)
     if (isBodyDeleted) {
       await this.showLoadingIndicator(commentId)
     }
@@ -236,11 +293,19 @@ export class RedditContentProcessor {
     this.scheduledCommentIds.add(commentId)
   }
 
+  /**
+   * Checks for new comments and processes them
+   * @returns {Promise<void>}
+   */
   async processNewComments() {
     const commentNodes = await this.getNewCommentNodes()
     commentNodes.forEach(commentNode => this.processCommentNode(commentNode))
   }
 
+  /**
+   * Start a mutation observer to watch for new comments
+   * @returns {Promise<void>}
+   */
   async observeNewComments() {
     const debounceProcess = this.debounce(() => {
       this.processNewComments()
@@ -389,15 +454,6 @@ export class RedditContentProcessor {
    */
   async getCommentAuthorNode(commentNode) {
     throw new Error('getCommentAuthorNode() must be implemented by subclass')
-  }
-
-  /**
-   * Expands a comment node.
-   * @param {Element} commentNode
-   * @returns {Promise<boolean>}
-   */
-  async expandCommentNode(commentNode) {
-    throw new Error('expandCommentNode() must be implemented by subclass')
   }
 
   /**
