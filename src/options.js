@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   extensionIcon.src = process.env.ICON_PATH + 'icon_48.png'
 
   // Load saved settings
-  chrome.storage.local.get(['expandCollapsedComments', 'runMode'], result => {
+  chrome.storage.local.get(['expandCollapsedComments'], result => {
     expandCollapsedCommentsToggle.checked = result.expandCollapsedComments ?? true
   })
 
