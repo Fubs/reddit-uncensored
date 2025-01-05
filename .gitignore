@@ -13,9 +13,12 @@ chrome/dist.pem
 chrome/dist.crx
 chrome/*.zip
 
+.env
+
 ./*.zip
 ./*.tgz
 ./*.gz
 
 # ignore all . folders but include . files
 .*/
+!.github/

@@ -39,7 +39,6 @@ export class RedditContentProcessor {
       'Deleted by user',
       'Removed by moderator',
       'Removed by Reddit',
-      '[ Removed by Reddit on account of violating the [content policy](/help/contentpolicy). ]',
       'Loading from archive...',
     ])
   }

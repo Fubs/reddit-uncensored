@@ -1,7 +1,7 @@
 {
   "name": "reddit-uncensored",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
-  "version": "0.0.4",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
     "dev:firefox": "pnpm --filter ./firefox run dev",
@@ -12,6 +12,8 @@
     "clean:chrome": "pnpm --filter ./chrome run clean",
     "pack:firefox": "pnpm --filter ./firefox run pack",
     "pack:chrome": "pnpm --filter ./chrome run pack",
+    "zip:firefox": "pnpm --filter ./firefox run zip",
+    "zip:chrome": "pnpm --filter ./chrome run ",
     "lint:firefox": "pnpm --filter ./firefox run build && pnpm --filter ./firefox run lint",
     "lint": "pnpm run lint:firefox",
     "version": "dev_scripts/update_version.sh",
@@ -19,9 +21,14 @@
     "format": "prettier --write --ignore-unknown \"{,!(node_modules)/**/}*.{html,css,js,mjs,ts,json}\"",
     "build": "pnpm run --parallel -r build",
     "pack": "pnpm run --parallel -r pack",
+    "zip": "pnpm run --parallel -r zip",
+    "semantic-release": "semantic-release",
     "all": "pnpm run clean && pnpm run format && pnpm run build && pnpm run pack"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "adm-zip": "^0.5.16",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^7.1.2",
@@ -30,6 +37,7 @@
     "file-loader": "^6.2.0",
     "mini-css-extract-plugin": "^2.9.2",
     "prettier": "^3.4.2",
+    "semantic-release": "^24.2.0",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1",
     "webpack-merge": "^6.0.1"

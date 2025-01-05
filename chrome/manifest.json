@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Reddit Uncensored",
-  "version": "0.0.4",
+  "version": "0.0.0",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
   "permissions": ["storage"],
   "host_permissions": ["https://arctic-shift.photon-reddit.com/*"],

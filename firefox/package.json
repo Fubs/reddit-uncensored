@@ -1,7 +1,7 @@
 {
   "name": "reddit-uncensored",
   "description": "Automatically restores deleted posts and comments on Reddit using the Arctic Shift API",
-  "version": "0.0.4",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "format": "prettier --write --ignore-path ../.gitignore --ignore-unknown \"{,!(node_modules)/**/}*.{html,css,js,mjs,ts,json}\"",
     "clean": "rm -rf dist/* web-ext-artifacts/* reddit-uncensored-*.zip ./*.tgz dist.zip",
     "lint": "web-ext lint -s dist",
-    "pack": "web-ext build -s dist --overwrite-dest"
+    "pack": "web-ext build -s dist --overwrite-dest",
+    "zip": "zip -r dist-firefox.zip dist/"
   }
 }

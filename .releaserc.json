@@ -1,0 +1,45 @@
+{
+  "branches": ["+([0-9])?(.{+([0-9]),x}).x", "main", { "name": "dev", "prerelease": true }],
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "angular",
+        "releaseRules": [
+          { "type": "docs", "scope": "README", "release": "patch" },
+          { "type": "refactor", "release": "patch" },
+          { "type": "style", "release": "patch" },
+          { "type": "bump", "release": "patch" }
+        ]
+      }
+    ],
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "./dev_scripts/update_manifest_version.sh ${nextRelease.version}",
+        "publishCmd": "pnpm run zip"
+      }
+    ],
+    ["@semantic-release/changelog", { "changelogFile": "CHANGELOG.md" }],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "firefox/dist-firefox.zip",
+            "name": "firefox-plugin.zip"
+          },
+          {
+            "path": "chrome/dist-chrome.zip",
+            "name": "chrome-plugin.zip"
+          },
+          "package.json",
+          "pnpm-lock.yaml",
+          "CHANGELOG.md"
+        ]
+      }
+    ],
+    "@semantic-release/git"
+  ]
+}

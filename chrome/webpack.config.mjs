@@ -28,7 +28,6 @@ const config = {
         { from: path.resolve(__dirname, 'src/options.html'), to: 'options.html' },
       ],
     }),
-
     new Dotenv({ path: './.env' }),
   ],
   resolve: {
