@@ -9,9 +9,17 @@ on:
       users:
         - Fubs
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
     strategy:
       matrix:
         node-version: [ 20 ]
@@ -36,4 +44,3 @@ jobs:
         run: pnpx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
