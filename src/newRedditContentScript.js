@@ -258,60 +258,133 @@ import { RedditContentProcessor } from './common.js'
       containerNode.replaceWith(newContent)
     }
 
+    /**
+     * Adds a metadata button to a comment node by fetching its comment ID and constructing an archive URL.
+     * @param {HTMLElement} commentNode
+     * @returns {Promise<void>}
+     */
     async addMetadataButton(commentNode) {
       const commentId = await this.getCommentId(commentNode)
       const archiveUrl = `https://arctic-shift.photon-reddit.com/api/comments/ids?ids=${commentId}`
-      const newId = commentId + '-metadata'
-      const buttonHTML = `
-      <li rpl="" class="relative list-none mt-0 " role="presentation">
-        <div id="${newId}" aria-disabled="false" tabindex="0" class="flex justify-between relative px-md gap-[0.5rem] text-secondary hover:text-secondary-hover active:bg-interactive-pressed hover:bg-neutral-background-hover hover:no-underline cursor-pointer  py-xs  -outline-offset-1 " style="padding-right:16px">
-          <a href="${archiveUrl}" target="_blank" rel="noopener noreferrer">
-            <span class="flex items-center gap-xs min-w-0 shrink">
-              <span class="flex flex-col justify-center min-w-0 shrink py-[var(--rem6)]">
-                <span class="text-14">
-                  Open archive data
-                </span>
-              </span>
-            </span>
-          </a>
-        </div>
-      </li>`
-
-      const overflowSelector = `shreddit-overflow-menu[comment-id="t1_${commentId}"]`
-      let dropdownMenu = commentNode.querySelector(overflowSelector)?.shadowRoot?.querySelector('faceplate-dropdown-menu > faceplate-menu')
-      if (!dropdownMenu) {
-        console.warn("Couldn't find overflow menu for comment", commentId)
-        return
-      }
-
-      const parser = new DOMParser()
-      const parsedHtml = parser.parseFromString(buttonHTML, 'text/html')
-      dropdownMenu.appendChild(DOMPurify.sanitize(parsedHtml.body.childNodes[0], { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
+      await this.addCustomArchiveButton(commentNode, commentId, archiveUrl)
     }
 
     /**
-     * Add listener to handle user collapsed comments
+     * Adds a custom archive button to the comment action row
+     * @param {Element} commentNode - The comment node
+     * @param {string} commentId - The comment ID
+     * @param {string} archiveUrl - URL to the archive data
+     */
+    async addCustomArchiveButton(commentNode, commentId, archiveUrl) {
+      if (this.processedCommentIds.has(commentId)) {
+        return
+      }
+
+      const actionRow = commentNode.querySelector('shreddit-comment-action-row')
+      if (!actionRow || !actionRow.shadowRoot) {
+        console.warn("Couldn't find action row for comment", commentId)
+        return
+      }
+
+      const customSlotName = 'archive-data-button'
+      await this.injectCustomSlotStyles(actionRow, customSlotName)
+
+      // noinspection CssUnresolvedCustomProperty
+      const buttonHTML = `
+        <a href="${archiveUrl}" target="_blank" rel="noopener noreferrer" slot="${customSlotName}" class="archive-data-button">
+          <button style="height: var(--size-button-sm-h); font: var(--font-button-sm)" class="button border-md text-12 button-plain-weak inline-flex pr-sm">
+            <span style="" class="flex items-center gap-2xs">
+              <span class="self-end">
+                <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 22 22">
+                  <path
+                   d="M5 12V6C5 5.44772 5.44772 5 6 5H18C18.5523 5 19 5.44772 19 6V18C19 18.5523 18.5523 19 18 19H12M8.11111 12H12M12 12V15.8889M12 12L5 19"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke="var(--button-color-text)" />
+                </svg>
+              </span>
+              <span>Open archive data</span>
+            </span>        
+          </button>
+        </a>`
+
+      // Parse the HTML and sanitize it
+      const parser = new DOMParser()
+      const parsedHtml = parser.parseFromString(buttonHTML, 'text/html')
+      const newButton = DOMPurify.sanitize(parsedHtml.body.childNodes[0], {
+        USE_PROFILES: { svg: true, html: true },
+        ADD_ATTR: ['target', 'slot'],
+        IN_PLACE: true,
+      })
+      // Append the new button to the action row
+      actionRow.appendChild(newButton)
+    }
+
+    /**
+     * Injects CSS to handle our custom slot in the action row's shadow DOM
+     * @param {Element} actionRow - The action row element
+     * @param {string} customSlotName - Our custom slot name
+     */
+    async injectCustomSlotStyles(actionRow, customSlotName) {
+      if (actionRow.hasAttribute('reddit-uncensored-processed')) {
+        return
+      }
+
+      // find the overflow menu, and modify its order to be higher than the new slot
+      const overflowMenu = actionRow.querySelector('[slot="overflow"]')
+      if (overflowMenu) {
+        overflowMenu.style.order = '201'
+      }
+
+      const styleElement = document.createElement('style')
+      styleElement.textContent = `
+        ::slotted([slot="${customSlotName}"]) {
+          order: 200; 
+          display: inline-flex;
+        }
+        
+        .flex.items-center.max-h-2xl.shrink {
+          display: flex !important;
+        }
+      `
+
+      actionRow.shadowRoot.appendChild(styleElement)
+
+      const slotElement = document.createElement('slot')
+      slotElement.name = customSlotName
+
+      const shareSlot = actionRow.shadowRoot.querySelector('slot[name="comment-share"]')
+      const actionItemsContainer = actionRow.shadowRoot.querySelector('.flex.items-center.max-h-2xl.shrink')
+
+      if (shareSlot) {
+        shareSlot.after(slotElement)
+      } else if (actionItemsContainer) {
+        actionItemsContainer.appendChild(slotElement) // Append to the end of the action items container as fallback
+      } else {
+        console.warn("Couldn't find a suitable place to insert archive button slot")
+        return
+      }
+
+      actionRow.setAttribute('reddit-uncensored-processed', 'true')
+    }
+
+    /**
+     * Add listener to handle user collapsed comments and track them in the userCollapsedComments set.
      * @returns {Promise<void>}
      */
     async addCollapseListener() {
       document.addEventListener('click', async event => {
-        // Check if the click target is a shreddit-comment or inside one
         const commentElement = event.target.closest('shreddit-comment')
         if (commentElement) {
-          // Get the comment ID
           const commentId = await this.getCommentId(commentElement)
           if (commentId) {
-            // Add a small delay to let the native collapse happen first
             setTimeout(() => {
-              // Check if the comment is now collapsed (details not open)
               const shadowRoot = commentElement.shadowRoot
               if (shadowRoot) {
                 const details = shadowRoot.querySelector('details')
                 if (details && !details.open) {
-                  // User has collapsed this comment
                   this.userCollapsedComments.add(commentId)
                 } else {
-                  // User has expanded this comment
                   this.userCollapsedComments.delete(commentId)
                 }
               }
