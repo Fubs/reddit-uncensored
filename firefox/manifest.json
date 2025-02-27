@@ -33,7 +33,9 @@
       "run_at": "document_end"
     }
   ],
-  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html"
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "{c88e88f4-881a-4662-87a9-adc4227d7e69}",
