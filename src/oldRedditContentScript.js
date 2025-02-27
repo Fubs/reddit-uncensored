@@ -434,10 +434,40 @@ import { RedditContentProcessor } from './common.js'
       li.appendChild(a)
       flatListButtons.appendChild(DOMPurify.sanitize(li, { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
     }
+
+    /**
+     * Add listener to handle user collapsed comments
+     * @returns {Promise<void>}
+     */
+    async addCollapseListener() {
+      document.addEventListener('click', async event => {
+        // Check if the click was on an expand/collapse link
+        if (event.target.classList.contains('expand') || event.target.closest('a.expand')) {
+          // Find the comment node
+          const commentNode = event.target.closest('.thing.comment')
+          if (commentNode) {
+            const commentId = await this.getCommentId(commentNode)
+            if (commentId) {
+              // Add a small delay to let the native collapse happen first
+              setTimeout(() => {
+                if (commentNode.classList.contains('collapsed')) {
+                  // User has collapsed this comment
+                  this.userCollapsedComments.add(commentId)
+                } else {
+                  // User has expanded this comment
+                  this.userCollapsedComments.delete(commentId)
+                }
+              }, 50)
+            }
+          }
+        }
+      })
+    }
   }
 
   const processor = new OldRedditContentProcessor()
   await processor.loadSettings()
+  await processor.addCollapseListener()
   await processor.processMainPost()
   await processor.processExistingComments()
   await processor.observeNewComments()

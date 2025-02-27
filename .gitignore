@@ -3,11 +3,13 @@ attic/
 node_modules/
 
 firefox/node_modules/
+firefox/node_modules
 firefox/web-ext-artifacts/
 firefox/dist
 firefox/*.zip
 
 chrome/node_modules/
+chrome/node_modules
 chrome/dist
 chrome/dist.pem
 chrome/dist.crx

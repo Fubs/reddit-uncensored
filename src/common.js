@@ -10,7 +10,8 @@ export class RedditContentProcessor {
     this.processedCommentIds = new Set()
     this.cachedCommentIds = new Map()
     this.cachedPostId = null
-    this.autoExpandedCommentIds = new Set()
+    this.autoExpandedCommentIds = new Set() // Track comments expanded by this script
+    this.userCollapsedComments = new Set() // Track comments manually collapsed by the user
 
     /**
      * Sets of comment IDs that are missing a field and need to be fetched
@@ -39,6 +40,7 @@ export class RedditContentProcessor {
       'Deleted by user',
       'Removed by moderator',
       'Removed by Reddit',
+      '[ Removed by Reddit on account of violating the [content policy](/help/contentpolicy). ]',
       'Loading from archive...',
     ])
   }
@@ -131,17 +133,32 @@ export class RedditContentProcessor {
    * @returns {Promise<boolean>}
    */
   async expandCommentNode(commentNode) {
+    const commentId = await this.getCommentId(commentNode)
+
+    // Don't expand if the user manually collapsed this comment
+    if (this.userCollapsedComments.has(commentId)) {
+      return false
+    }
+
     // Don't auto-expand if setting is disabled, or if the comment was already expanded once by this script.
     // The 'depth' !== '0' check is to fix an edge case when viewing of a single-comment-thread page with a deleted root comment
     if (
       (!this.shouldAutoExpand && (commentNode.hasAttribute('collapsed') || commentNode.classList.contains('collapsed'))) ||
-      (this.autoExpandedCommentIds.has(this.getCommentId(commentNode)) && commentNode.getAttribute('depth') !== '0')
+      (this.autoExpandedCommentIds.has(commentId) && commentNode.getAttribute('depth') !== '0')
     ) {
       return false
     }
 
-    if (commentNode.hasAttribute('collapsed')) {
-      // hasAttribute('collapsed') indicates new reddit layout
+    // For new Reddit (shreddit-comment with shadow DOM)
+    if (commentNode.tagName && commentNode.tagName.toLowerCase() === 'shreddit-comment' && commentNode.shadowRoot) {
+      const details = commentNode.shadowRoot.querySelector('details')
+      if (details && !details.open) {
+        details.open = true
+      }
+    }
+    // For old Reddit or other implementations
+    else if (commentNode.hasAttribute('collapsed')) {
+      // hasAttribute('collapsed') indicates new reddit layout without shadow DOM
       commentNode.removeAttribute('collapsed')
       commentNode.classList.remove('collapsed')
     } else if (commentNode.classList.contains('collapsed')) {
@@ -151,7 +168,7 @@ export class RedditContentProcessor {
     }
 
     if (this.shouldAutoExpand) {
-      this.autoExpandedCommentIds.add(this.getCommentId(commentNode))
+      this.autoExpandedCommentIds.add(commentId)
     }
     return true
   }
@@ -254,6 +271,11 @@ export class RedditContentProcessor {
     const commentId = await this.getCommentId(commentNode)
     if (!commentId) return
 
+    // Skip processing if this comment was manually collapsed by the user
+    if (this.userCollapsedComments.has(commentId)) {
+      return
+    }
+
     if (!this.idToCommentNode.has(commentId)) {
       this.idToCommentNode.set(commentId, commentNode)
     }
@@ -308,11 +330,25 @@ export class RedditContentProcessor {
    */
   async observeNewComments() {
     const debounceProcess = this.debounce(() => {
-      this.processNewComments()
-      this.scheduleFetch()
+      if (!this.isUserAction) {
+        this.processNewComments()
+        this.scheduleFetch()
+      }
+      this.isUserAction = false // Reset the flag
     }, 100)
 
     const observer = new MutationObserver(() => {
+      // If this mutation was triggered by a user clicking to collapse/expand
+      // we'll set the flag and avoid processing
+      if (
+        document.activeElement &&
+        (document.activeElement.classList.contains('expand') ||
+          document.activeElement.classList.contains('collapse') ||
+          document.activeElement.classList.contains('expando-button'))
+      ) {
+        this.isUserAction = true
+      }
+
       debounceProcess()
     })
 

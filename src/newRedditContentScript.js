@@ -288,10 +288,43 @@ import { RedditContentProcessor } from './common.js'
       const parsedHtml = parser.parseFromString(buttonHTML, 'text/html')
       dropdownMenu.appendChild(DOMPurify.sanitize(parsedHtml.body.childNodes[0], { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
     }
+
+    /**
+     * Add listener to handle user collapsed comments
+     * @returns {Promise<void>}
+     */
+    async addCollapseListener() {
+      document.addEventListener('click', async event => {
+        // Check if the click target is a shreddit-comment or inside one
+        const commentElement = event.target.closest('shreddit-comment')
+        if (commentElement) {
+          // Get the comment ID
+          const commentId = await this.getCommentId(commentElement)
+          if (commentId) {
+            // Add a small delay to let the native collapse happen first
+            setTimeout(() => {
+              // Check if the comment is now collapsed (details not open)
+              const shadowRoot = commentElement.shadowRoot
+              if (shadowRoot) {
+                const details = shadowRoot.querySelector('details')
+                if (details && !details.open) {
+                  // User has collapsed this comment
+                  this.userCollapsedComments.add(commentId)
+                } else {
+                  // User has expanded this comment
+                  this.userCollapsedComments.delete(commentId)
+                }
+              }
+            }, 50)
+          }
+        }
+      })
+    }
   }
 
   const processor = new NewRedditContentProcessor()
   await processor.loadSettings()
+  await processor.addCollapseListener()
   await processor.processMainPost()
   await processor.processExistingComments()
   await processor.observeNewComments()
