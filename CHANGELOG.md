@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/Fubs/reddit-uncensored/compare/v1.2.0...v1.2.1) (2025-02-27)
+
+
+### Bug Fixes
+
+* fix options page to work properly with options_ui ([75c48cf](https://github.com/Fubs/reddit-uncensored/commit/75c48cf81d0f3ed86ae44d46cc90e8ecab8bcf1c))
+
 # [1.2.0](https://github.com/Fubs/reddit-uncensored/compare/v1.1.0...v1.2.0) (2025-02-27)
 
 
