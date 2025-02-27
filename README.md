@@ -70,7 +70,7 @@ You can go to the  `about:debugging` page, select `Load temporary Add-on`, and s
 
 However doing that will cause the extension to be removed after the browser is closed. You can install it persistently but only on the developer edition of firefox.
 
-To install it persistnently in the developer edition, you must first set `xpinstall.signatures.required` to `false` in `about:config`. Then you can run
+To install it persistently in the developer edition, you must first set `xpinstall.signatures.required` to `false` in `about:config`. Then you can run
 
 ```bash
 pnpm run pack:firefox
