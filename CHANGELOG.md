@@ -1,3 +1,10 @@
+# [1.2.0-dev.1](https://github.com/Fubs/reddit-uncensored/compare/v1.1.1-dev.1...v1.2.0-dev.1) (2025-02-27)
+
+
+### Features
+
+* redesigned "Open archive data" button with improved styling ([1322713](https://github.com/Fubs/reddit-uncensored/commit/13227133136494eea4638f99c0a43c45656be0bb))
+
 ## [1.1.1-dev.1](https://github.com/Fubs/reddit-uncensored/compare/v1.1.0...v1.1.1-dev.1) (2025-02-27)
 
 
