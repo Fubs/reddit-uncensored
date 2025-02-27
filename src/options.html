@@ -4,52 +4,48 @@
     <title>Reddit Uncensored Settings</title>
     <style>
       :root {
-        /* Base font size for rem calculations */
         font-size: 16px;
       }
 
       body {
         margin: 0;
-        padding: 0;
+        padding: 1rem;
         font-family: Arial, sans-serif;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
         background-color: #f5f5f5;
       }
 
       .container {
         background-color: white;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 0.5rem;
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
-        min-width: 25rem;
-        max-width: 50rem;
+        width: 100%;
+        box-sizing: border-box;
       }
 
       .header {
         display: flex;
         align-items: center;
-        margin-bottom: 2rem;
-        padding-bottom: 1.25rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
         border-bottom: 0.0625rem solid #eee;
       }
 
       .header img {
-        width: 3rem;
-        height: 3rem;
+        width: 2.5rem;
+        height: 2.5rem;
         margin-right: 1rem;
       }
 
       .header h1 {
         margin: 0;
         color: #333;
+        font-size: 1.5rem;
       }
 
       .setting-item {
-        margin-bottom: 1.5625rem;
-        padding-bottom: 1.25rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
         border-bottom: 0.0625rem solid #eee;
       }
 
@@ -69,6 +65,7 @@
       .setting-label {
         margin-right: 1rem;
         font-weight: 500;
+        padding-top: 0.125rem;
       }
 
       .setting-help {
@@ -76,10 +73,8 @@
         font-size: 0.9em;
         line-height: 1.4;
         margin-top: 0.5rem;
-        padding-right: 4.375rem;
       }
 
-      /* Toggle switch styles */
       .switch {
         position: relative;
         display: inline-block;
@@ -125,33 +120,9 @@
       input:checked + .slider:before {
         transform: translateX(1.625rem);
       }
-
-      .radio-group {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .radio-label {
-        display: block;
-        margin: 0.125rem 0;
-        cursor: pointer;
-        color: #333;
-      }
-
-      .radio-label input[type='radio'] {
-        margin-right: 0.5rem;
-      }
-
-      .setting-label {
-        margin-right: 1rem;
-        font-weight: 500;
-        padding-top: 0.125rem;
-      }
     </style>
   </head>
   <body>
-    <!doctype html>
     <div class="container">
       <div class="header">
         <img id="extensionIcon" data-icon="icon_48.png" alt="Reddit Uncensored" />
