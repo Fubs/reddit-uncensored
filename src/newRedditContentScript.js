@@ -180,15 +180,30 @@ import { RedditContentProcessor } from './common.js'
     }
 
     async getPostId(postNode) {
-      const postId = postNode.getAttribute('id').replace('t3_', '')
-      if (await this.isValidRedditId(postId)) {
-        return postId
-      } else {
-        const matches = window.location.href.match(/\/comments\/([a-zA-Z0-9]{0,7})/)
+      // If postNode is null, try to get the post ID from the URL directly
+      if (!postNode) {
+        const matches = window.location.href.match(/\/comments\/([a-zA-Z0-9]{1,7})/)
         if (matches && (await this.isValidRedditId(matches[1]))) {
           return matches[1]
         }
+        console.warn("Couldn't find post node and couldn't extract post ID from URL")
+        return null
       }
+
+      // If postNode exists, try to get the ID from its attributes
+      const postId = postNode.getAttribute('id')?.replace('t3_', '')
+      if (postId && (await this.isValidRedditId(postId))) {
+        return postId
+      }
+
+      // Fallback to URL extraction
+      const matches = window.location.href.match(/\/comments\/([a-zA-Z0-9]{1,7})/)
+      if (matches && (await this.isValidRedditId(matches[1]))) {
+        return matches[1]
+      }
+
+      console.warn("Couldn't extract post ID")
+      return null
     }
 
     async isPostTitleDeleted(postNode) {
@@ -234,19 +249,11 @@ import { RedditContentProcessor } from './common.js'
     }
 
     async replaceContentBody(containerNode, htmlContent, styles = {}, newId = null, newClassList = null, surroundWithDiv = null) {
-      const parser = new DOMParser()
-      const correctHtmlStr = htmlContent ? htmlContent : '<div slot="text-body">[not found in archive]</div>'
-      let parsedHtml = parser.parseFromString(correctHtmlStr, 'text/html')
-      if (parsedHtml && parsedHtml.body && parsedHtml.body.textContent && this.DELETED_TEXT.has(parsedHtml.body.textContent.trim())) {
-        parsedHtml = parser.parseFromString('<div class="md"><p>[not found in archive]</p></div>', 'text/html')
-      }
-
+      const fragment = document.createDocumentFragment()
       const newContent = document.createElement('div')
-      while (parsedHtml.body.firstChild) {
-        newContent.appendChild(parsedHtml.body.firstChild)
-      }
 
-      await this.applyStyles(newContent, {
+      // Apply all styles at once
+      Object.assign(newContent.style, {
         outline: '#e85646 solid',
         display: 'inline-block',
         padding: '.4rem',
@@ -255,26 +262,25 @@ import { RedditContentProcessor } from './common.js'
         ...styles,
       })
 
-      containerNode.replaceWith(newContent)
+      newContent.innerHTML = DOMPurify.sanitize(htmlContent)
+      fragment.appendChild(newContent)
+
+      // Single DOM operation
+      containerNode.replaceWith(fragment)
     }
 
-    /**
-     * Adds a metadata button to a comment node by fetching its comment ID and constructing an archive URL.
-     * @param {HTMLElement} commentNode
-     * @returns {Promise<void>}
-     */
     async addMetadataButton(commentNode) {
       const commentId = await this.getCommentId(commentNode)
+
+      // check if metadata button already exists
+      if (document.getElementById(`archive-data-button-${commentId}`)) {
+        return
+      }
+
       const archiveUrl = `https://arctic-shift.photon-reddit.com/api/comments/ids?ids=${commentId}`
       await this.addCustomArchiveButton(commentNode, commentId, archiveUrl)
     }
 
-    /**
-     * Adds a custom archive button to the comment action row
-     * @param {Element} commentNode - The comment node
-     * @param {string} commentId - The comment ID
-     * @param {string} archiveUrl - URL to the archive data
-     */
     async addCustomArchiveButton(commentNode, commentId, archiveUrl) {
       if (this.processedCommentIds.has(commentId)) {
         return
@@ -291,7 +297,7 @@ import { RedditContentProcessor } from './common.js'
 
       // noinspection CssUnresolvedCustomProperty
       const buttonHTML = `
-        <a href="${archiveUrl}" target="_blank" rel="noopener noreferrer" slot="${customSlotName}" class="archive-data-button">
+        <a id="archive-data-button-${commentId}" href="${archiveUrl}" target="_blank" rel="noopener noreferrer" slot="${customSlotName}" class="archive-data-button">
           <button style="height: var(--size-button-sm-h); font: var(--font-button-sm)" class="button border-md text-12 button-plain-weak inline-flex pr-sm">
             <span style="" class="flex items-center gap-2xs">
               <span class="self-end">
@@ -320,11 +326,6 @@ import { RedditContentProcessor } from './common.js'
       actionRow.appendChild(newButton)
     }
 
-    /**
-     * Injects CSS to handle our custom slot in the action row's shadow DOM
-     * @param {Element} actionRow - The action row element
-     * @param {string} customSlotName - Our custom slot name
-     */
     async injectCustomSlotStyles(actionRow, customSlotName) {
       if (actionRow.hasAttribute('reddit-uncensored-processed')) {
         return
@@ -368,10 +369,6 @@ import { RedditContentProcessor } from './common.js'
       actionRow.setAttribute('reddit-uncensored-processed', 'true')
     }
 
-    /**
-     * Add listener to handle user collapsed comments and track them in the userCollapsedComments set.
-     * @returns {Promise<void>}
-     */
     async addCollapseListener() {
       document.addEventListener('click', async event => {
         const commentElement = event.target.closest('shreddit-comment')
@@ -393,14 +390,17 @@ import { RedditContentProcessor } from './common.js'
         }
       })
     }
+
+    async getFirstCommentNode() {
+      return document.querySelector('shreddit-comment-tree > shreddit-comment')
+    }
   }
 
   const processor = new NewRedditContentProcessor()
   await processor.loadSettings()
+  await processor.observeUrlChanges()
   await processor.addCollapseListener()
-  await processor.processMainPost()
-  await processor.processExistingComments()
-  await processor.observeNewComments()
+  await processor.observeNewComments(document.body)
 })()
   .then(() => {})
   .catch(e => console.error('error in reddit-uncensored content script:', e))

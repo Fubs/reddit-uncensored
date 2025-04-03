@@ -183,9 +183,13 @@ import { RedditContentProcessor } from './common.js'
 
       if (bodyNode.classList.contains('admin_takedown')) return true
 
-      const usertextNode = postNode.querySelector('div.entry div.usertext-body > div.md > p')
-
+      const usertextNode = postNode.querySelector('div.entry div.usertext-body')
       if (usertextNode) {
+        return this.DELETED_TEXT.has(usertextNode.textContent.trim())
+      }
+
+      const altUsertextNode = postNode.querySelector('div.entry div.usertext-body > div.md > p')
+      if (altUsertextNode) {
         return this.DELETED_TEXT.has(usertextNode.textContent.trim())
       }
 
@@ -204,7 +208,7 @@ import { RedditContentProcessor } from './common.js'
     async isPostAuthorDeleted(postNode) {
       const postAuthorNode = await this.getAuthorNode(postNode)
       if (!postAuthorNode) {
-        console.log('postAuthorNode is null')
+        console.warn('postAuthorNode is null')
         return false
       }
       return this.DELETED_TEXT.has(postAuthorNode.textContent.trim())
@@ -233,13 +237,14 @@ import { RedditContentProcessor } from './common.js'
     async updatePostBody(postNode, dirtySelftextHtml) {
       let expandoNode = postNode.querySelector('div.entry > div.expando')
       const replacementId = Math.random().toString(36).slice(2)
+      const newContainerId = Math.random().toString(36).slice(2)
 
       let replaceTarget
       if (expandoNode) {
         replaceTarget = expandoNode
       } else {
         let newContainer = document.createElement('div')
-        newContainer.id = replacementId
+        newContainer.id = newContainerId
         postNode.querySelector('div.entry > div.top-matter').after(newContainer)
 
         replaceTarget = newContainer
@@ -248,7 +253,7 @@ import { RedditContentProcessor } from './common.js'
       // save other non-deleted parts of the post before replacing expando, if any exist
       let extraPostItems = []
       if (expandoNode && expandoNode.querySelector(':scope > div:not(.usertext-body)')) {
-        const items = Array.from(expandoNode.querySelectorAll(':scope > div:not(.usertext-body)'))
+        const items = Array.from(expandoNode.querySelectorAll(':scope > div:not(.usertext-body)')).map(node => node.cloneNode(true))
         extraPostItems = [...items]
       }
 
@@ -273,10 +278,16 @@ import { RedditContentProcessor } from './common.js'
         'expando',
       )
 
-      const p = document.getElementById(replacementId)
-      extraPostItems.forEach(item => {
-        p.insertBefore(item, p.lastChild)
-      })
+      const p = document.getElementById('usertext-body')
+      if (!p) {
+        console.warn('Replacement element is null or undefined')
+      } else {
+        if (extraPostItems.length > 0) {
+          extraPostItems.forEach(item => {
+            p.insertBefore(item, p.lastChild)
+          })
+        }
+      }
     }
 
     async updatePostTitle(postNode, title) {
@@ -352,7 +363,6 @@ import { RedditContentProcessor } from './common.js'
           if (newId) {
             surroundingDiv.id = newId
           }
-
           containerNode.replaceWith(surroundingDiv)
         } else {
           if (newId) {
@@ -435,26 +445,17 @@ import { RedditContentProcessor } from './common.js'
       flatListButtons.appendChild(DOMPurify.sanitize(li, { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }))
     }
 
-    /**
-     * Add listener to handle user collapsed comments
-     * @returns {Promise<void>}
-     */
     async addCollapseListener() {
       document.addEventListener('click', async event => {
-        // Check if the click was on an expand/collapse link
         if (event.target.classList.contains('expand') || event.target.closest('a.expand')) {
-          // Find the comment node
           const commentNode = event.target.closest('.thing.comment')
           if (commentNode) {
             const commentId = await this.getCommentId(commentNode)
             if (commentId) {
-              // Add a small delay to let the native collapse happen first
               setTimeout(() => {
                 if (commentNode.classList.contains('collapsed')) {
-                  // User has collapsed this comment
                   this.userCollapsedComments.add(commentId)
                 } else {
-                  // User has expanded this comment
                   this.userCollapsedComments.delete(commentId)
                 }
               }, 50)
@@ -463,14 +464,17 @@ import { RedditContentProcessor } from './common.js'
         }
       })
     }
+
+    async getFirstCommentNode() {
+      return document.querySelector('div.commentarea > div.sitetable > div.comment')
+    }
   }
 
   const processor = new OldRedditContentProcessor()
   await processor.loadSettings()
+  await processor.observeUrlChanges()
   await processor.addCollapseListener()
-  await processor.processMainPost()
-  await processor.processExistingComments()
-  await processor.observeNewComments()
+  await processor.observeNewComments(document.body)
 })()
   .then(() => {})
   .catch(e => console.error('error in reddit-uncensored content script:', e))

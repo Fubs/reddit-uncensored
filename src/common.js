@@ -2,16 +2,73 @@ import { MsgType } from './background'
 
 export class RedditContentProcessor {
   constructor() {
+    /**
+     * Whether to automatically expand collapsed comments, will be set by value in browser.storage.local
+     * @type {boolean|null}
+     */
     this.shouldAutoExpand = null
 
+    /**
+     * Mapping of comment IDs to their corresponding comment nodes
+     * @type {Map<string, HTMLElement>}
+     */
     this.idToCommentNode = new Map()
+
+    /**
+     * Maps the main post's id to the post usertext node
+     * @type {Map<string, HTMLElement>}
+     */
     this.idToUsertextNode = new Map()
+
+    /**
+     * Set of comment IDs scheduled to have missing data fetched
+     * @type {Set<string>}
+     */
     this.scheduledCommentIds = new Set()
+
+    /**
+     * Set of successfully processed comment ids
+     * @type {Set<string>}
+     */
     this.processedCommentIds = new Set()
+
+    /**
+     *  Mapping of a comment node to its id
+     *  @type {Map<Element, string>}
+     */
     this.cachedCommentIds = new Map()
-    this.cachedPostId = null
+
+    /**
+     * Set of comment IDs that have been automatically expanded by this script
+     * @type {Set<string>}
+     */
     this.autoExpandedCommentIds = new Set() // Track comments expanded by this script
+
+    /**
+     * Set of comment IDs that were manually collapsed by the user
+     * @type {Set<string>}
+     */
     this.userCollapsedComments = new Set() // Track comments manually collapsed by the user
+
+    /**
+     * @type {RegExp}
+     */
+    this.singleThreadUrlPattern = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/\w+\/comments\/\w+\/\w+\/\w+\/$/
+
+    /**
+     * @type {RegExp}
+     */
+    this.subredditUrlPattern = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/(?!.*\/comments\/).*$/
+
+    /**
+     * @type {Set<string>}
+     */
+    this.processedUrls = new Set()
+
+    /**
+     * @type {Map<string, Object >}
+     */
+    this.pendingRequests = new Map()
 
     /**
      * Sets of comment IDs that are missing a field and need to be fetched
@@ -92,36 +149,71 @@ export class RedditContentProcessor {
    * @returns {Promise<void>}
    */
   async handleResponse(response, commentIds, type) {
-    if (response && response.commentsData) {
-      for (const item of response.commentsData.map((k, i) => [k, commentIds[i]])) {
-        const commentNode = this.idToCommentNode.get(item[1])
-        if (commentNode) {
-          switch (type) {
-            case MsgType.COMMENTS_AUTHOR:
-              await this.updateCommentAuthor(commentNode, item[0]['author'])
-              break
-            case MsgType.COMMENTS_BODY:
-              await this.updateCommentBody(commentNode, item[0]['body_html'])
-              break
-            case MsgType.COMMENTS_ALL:
-              await this.updateCommentNode(commentNode, item[1], item[0]['author'], item[0]['body_html'])
-              break
-          }
-        } else {
-          console.error('No commentNode found for commentId:', item[1])
-        }
-      }
-    } else {
-      console.error('No commentsData received from background script for authors')
+    if (!response || !response.commentsData) {
+      console.error('No commentsData received from background script')
+      return
     }
 
-    response.commentsData.forEach(data => {
-      const commentId = data.id
-      this.scheduledCommentIds.delete(commentId)
-      this.missingFieldBuckets.author.delete(commentId)
-      this.missingFieldBuckets.body.delete(commentId)
-      this.missingFieldBuckets.all.delete(commentId)
-    })
+    // Store the response data for any comments not currently in the DOM
+    // so we can apply it if they reappear after navigation
+    for (let i = 0; i < response.commentsData.length; i++) {
+      const data = response.commentsData[i]
+      const commentId = commentIds[i]
+
+      const commentNode = this.idToCommentNode.get(commentId)
+      if (commentNode) {
+        // Node exists, update it immediately
+        switch (type) {
+          case MsgType.COMMENTS_AUTHOR:
+            await this.updateCommentAuthor(commentNode, data.author)
+            break
+          case MsgType.COMMENTS_BODY:
+            await this.updateCommentBody(commentNode, data.body_html)
+            break
+          case MsgType.COMMENTS_ALL:
+            await this.updateCommentNode(commentNode, commentId, data.author, data.body_html)
+            break
+        }
+        // Mark as processed
+        this.scheduledCommentIds.delete(commentId)
+        this.processedCommentIds.add(commentId)
+        await this.removeCommentIdFromBuckets(commentId)
+      } else {
+        // Node doesn't exist (perhaps due to navigation)
+        // Store the data to apply later
+        this.pendingRequests.set(commentId, { data, type })
+      }
+    }
+  }
+
+  async processPendingRequests() {
+    if (this.pendingRequests.size === 0) return
+
+    for (const [commentId, request] of this.pendingRequests.entries()) {
+      const commentNode = this.idToCommentNode.get(commentId)
+
+      if (commentNode) {
+        // Node is now available, update it
+        switch (request.type) {
+          case MsgType.COMMENTS_AUTHOR:
+            await this.updateCommentAuthor(commentNode, request.data.author)
+            break
+          case MsgType.COMMENTS_BODY:
+            await this.updateCommentBody(commentNode, request.data.body_html)
+            break
+          case MsgType.COMMENTS_ALL:
+            await this.updateCommentNode(commentNode, commentId, request.data.author, request.data.body_html)
+            break
+        }
+
+        // Remove from pending requests
+        this.pendingRequests.delete(commentId)
+        // Mark as processed
+        this.scheduledCommentIds.delete(commentId)
+        this.processedCommentIds.add(commentId)
+        await this.removeCommentIdFromBuckets(commentId)
+      }
+    }
   }
 
   /**
@@ -135,8 +227,16 @@ export class RedditContentProcessor {
   async expandCommentNode(commentNode) {
     const commentId = await this.getCommentId(commentNode)
 
-    // Don't expand if the user manually collapsed this comment
-    if (this.userCollapsedComments.has(commentId)) {
+    // Don't expand if the user manually collapsed this comment, unless its the first comment on a single-comment-thread page
+    const isSingleThreadPage = this.isSingleThreadPage()
+    const firstCommentNode = this.getFirstCommentNode()
+    const userCollapsed = this.userCollapsedComments.has(commentId)
+
+    if (!(await isSingleThreadPage)) {
+      if (userCollapsed) {
+        return false
+      }
+    } else if ((await firstCommentNode) !== commentNode && userCollapsed) {
       return false
     }
 
@@ -241,7 +341,7 @@ export class RedditContentProcessor {
 
     Promise.all(fetchPromises)
       .then(() => {
-        console.log('Fetched archive data for', fetchCount, 'comments')
+        console.debug('Fetched archive data for', fetchCount, 'comments')
       })
       .catch(error => {
         console.error('Error fetching archive data:', error)
@@ -259,6 +359,8 @@ export class RedditContentProcessor {
       this.processCommentNode(commentNode)
     })
 
+    // Process any comments that had pending API responses from previous navigation
+    await this.processPendingRequests()
     await this.scheduleFetch()
   }
 
@@ -325,47 +427,15 @@ export class RedditContentProcessor {
   }
 
   /**
-   * Start a mutation observer to watch for new comments
-   * @returns {Promise<void>}
-   */
-  async observeNewComments() {
-    const debounceProcess = this.debounce(() => {
-      if (!this.isUserAction) {
-        this.processNewComments()
-        this.scheduleFetch()
-      }
-      this.isUserAction = false // Reset the flag
-    }, 100)
-
-    const observer = new MutationObserver(() => {
-      // If this mutation was triggered by a user clicking to collapse/expand
-      // we'll set the flag and avoid processing
-      if (
-        document.activeElement &&
-        (document.activeElement.classList.contains('expand') ||
-          document.activeElement.classList.contains('collapse') ||
-          document.activeElement.classList.contains('expando-button'))
-      ) {
-        this.isUserAction = true
-      }
-
-      debounceProcess()
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'collapsed'],
-    })
-  }
-
-  /**
    * @returns {Promise<void>}
    */
   async processMainPost() {
     const postNode = await this.getPostNode()
-    await this.fetchPostData(postNode)
+    if (postNode) {
+      await this.fetchPostData(postNode)
+    } else {
+      console.warn('processMainPost() could not find the main post node')
+    }
   }
 
   /**
@@ -373,9 +443,30 @@ export class RedditContentProcessor {
    * @returns {Promise<void>}
    */
   async fetchPostData(postNode) {
-    const postId = await this.getPostId(postNode)
-    const missingFields = await this.getMissingPostFields(postNode)
+    if (!postNode) {
+      console.warn("Can't fetch post data without a post node")
+      return
+    }
 
+    let postId = await this.getPostId(postNode)
+    if (!postId) {
+      console.warn("Couldn't get post ID, trying based on URL")
+      postId = await this.getPostIdFromUrl()
+      let urlMatch = document.getElementById('siteTable').querySelector('div.thing')
+
+      if (!(urlMatch && postNode === urlMatch)) {
+        console.warn('Failed to get post ID')
+        return
+      }
+    }
+
+    if (postNode.classList.contains('archive-processed')) {
+      return
+    } else {
+      postNode.classList.add('archive-processed')
+    }
+
+    const missingFields = await this.getMissingPostFields(postNode)
     if (missingFields.size === 0) {
       return
     }
@@ -437,6 +528,119 @@ export class RedditContentProcessor {
     }
 
     return missingFields
+  }
+
+  /**
+   * Get the post ID from the URL path
+   * @returns {Promise<string|null>}
+   */
+  async getPostIdFromUrl() {
+    const match = window.location.pathname.match(/\/comments\/(\w+)/)
+    if (match && match[1]) {
+      return match[1]
+    }
+    return null
+  }
+
+  /**
+   * Observe URL changes for client-side routing
+   * @returns {Promise<void>}
+   */
+  async observeUrlChanges() {
+    let lastUrl = location.href
+
+    // Initial run for the first page load
+    await this.runContentScript()
+
+    // Observer function
+    const urlChangeHandler = async () => {
+      if (location.href !== lastUrl) {
+        console.log(`URL changed from ${lastUrl} to ${location.href}`)
+        lastUrl = location.href
+
+        // Run the content script for the new page
+        await this.runContentScript()
+      }
+    }
+
+    // Use both history state changes and DOM mutations to detect navigation
+    window.addEventListener('popstate', urlChangeHandler)
+
+    // Observer for React router/client-side navigation
+    const navObserver = new MutationObserver(this.debounce(urlChangeHandler, 30))
+    navObserver.observe(document.body, { childList: true, subtree: true })
+
+    // Start observing
+    const urlObserver = new MutationObserver(this.debounce(urlChangeHandler, 30))
+    urlObserver.observe(document, { subtree: true, childList: true })
+  }
+
+  /**
+   * Start a mutation observer to watch for new comments
+   * @param observeTarget
+   * @returns {Promise<void>}
+   */
+  async observeNewComments(observeTarget) {
+    const debounceProcess = this.debounce(() => {
+      if (!this.isUserAction) {
+        this.processNewComments()
+        this.scheduleFetch()
+      }
+      this.isUserAction = false
+    }, 30)
+
+    const observer = new MutationObserver(() => {
+      // If this mutation was triggered by a user clicking to collapse/expand, set the flag to avoid processing
+      if (
+        document.activeElement &&
+        (document.activeElement.classList.contains('expand') ||
+          document.activeElement.classList.contains('collapse') ||
+          document.activeElement.classList.contains('expando-button'))
+      ) {
+        this.isUserAction = true
+      }
+
+      debounceProcess()
+    })
+
+    observer.observe(observeTarget, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'collapsed'],
+    })
+  }
+
+  async runContentScript() {
+    const currentUrl = window.location.href
+
+    // Reset state for the new page context
+    this.resetState()
+
+    // Skip if this is a subreddit page
+    if (this.subredditUrlPattern.test(currentUrl)) {
+      return
+    }
+
+    // Process the page content
+    await this.processMainPost()
+    await this.processExistingComments()
+
+    // Mark this URL as processed
+    this.processedUrls.add(currentUrl)
+  }
+
+  resetState() {
+    this.processedCommentIds.clear()
+    this.scheduledCommentIds.clear()
+    this.idToCommentNode.clear() // This was missing in your original resetState
+    this.idToUsertextNode.clear()
+    this.missingFieldBuckets.author.clear()
+    this.missingFieldBuckets.body.clear()
+    this.missingFieldBuckets.all.clear()
+    this.autoExpandedCommentIds.clear()
+    this.cachedCommentIds.clear()
+    // Don't clear userCollapsedComments as that should persist across pages
   }
 
   // Abstract methods to be implemented in subclasses:
@@ -707,11 +911,59 @@ export class RedditContentProcessor {
   }
 
   /**
-   * Adds a metadata button to a comment
+   * Adds a button to a comment node to open the archived data in a new tab
    * @param {HTMLElement} commentNode
    * @returns {Promise<void>}
    */
   async addMetadataButton(commentNode) {
     throw new Error('addMetadataButton() must be implemented by subclass')
+  }
+
+  /**
+   * Adds a custom archive button to the comment action row
+   * @param {Element} commentNode - The comment node
+   * @param {string} commentId - The comment ID
+   * @param {string} archiveUrl - URL to the archive data
+   * @returns {Promise<void>}
+   */
+  async addCustomArchiveButton(commentNode, commentId, archiveUrl) {
+    throw new Error('addCustomArchiveButton() must be implemented by subclass')
+  }
+
+  /**
+   * Injects CSS to handle our custom slot in the action row's shadow DOM
+   * @param {Element} actionRow - The action row element
+   * @param {string} customSlotName - Our custom slot name
+   * @returns {Promise<void>}
+   */
+  async injectCustomSlotStyles(actionRow, customSlotName) {
+    throw new Error('injectCustomSlotStyles() must be implemented by subclass')
+  }
+
+  /**
+   * Add listener to handle user collapsed comments and track them in the userCollapsedComments set.
+   * @returns {Promise<void>}
+   */
+  async addCollapseListener() {
+    throw new Error('addCollapseListener() must be implemented by subclass')
+  }
+
+  /**
+   *  Find the first comment on the page.
+   *  @returns {Promise<Element>} Returns the first comment node.
+   *  @throws {Error} Throws an error if not implemented by subclass.
+   */
+  async getFirstCommentNode() {
+    throw new Error('getFirstCommentNode() must be implemented by subclass')
+  }
+
+  /**
+   * Determine whether the current page is a single comment thread
+   *
+   * @returns {Promise<boolean>} True if currently on a single comment thread page, otherwise false.
+   * @throws {Error} Throws an error if not implemented by subclass.
+   */
+  async isSingleThreadPage() {
+    return this.singleThreadUrlPattern.test(window.location.href)
   }
 }
