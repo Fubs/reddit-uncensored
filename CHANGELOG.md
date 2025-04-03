@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/Fubs/reddit-uncensored/compare/v1.2.1...v1.2.2) (2025-04-03)
+
+
+### Bug Fixes
+
+* fixed deleted post detection edge case ([090e379](https://github.com/Fubs/reddit-uncensored/commit/090e379a9fb146463adf9977fa0f3a4539d8ed4b))
+
 ## [1.2.1](https://github.com/Fubs/reddit-uncensored/compare/v1.2.0...v1.2.1) (2025-02-27)
 
 
