@@ -1,3 +1,5 @@
+## [1.2.2-dev.2](https://github.com/Fubs/reddit-uncensored/compare/v1.2.2-dev.1...v1.2.2-dev.2) (2025-04-04)
+
 ## [1.2.2-dev.1](https://github.com/Fubs/reddit-uncensored/compare/v1.2.1...v1.2.2-dev.1) (2025-04-03)
 
 
