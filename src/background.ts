@@ -1,18 +1,24 @@
+/** Enum for message types sent to the background script */
 export enum MsgType {
+  /** Sent when requesting just the author of one or more comments */
   COMMENTS_AUTHOR = 1,
+  /** Sent when requesting just the body of one or more comments */
   COMMENTS_BODY = 2,
+  /** Sent when requesting full comment data (author and body) of one or more comments */
   COMMENTS_ALL = 3,
+  /** Sent when requesting the main post data (title, body, and author) */
   MAIN_POST = 4,
 }
 
+/** Enum for types of data returned from the background script */
 export enum ResponseType {
+  /** Response contains comments data */
   COMMENTS_DATA = 'commentsData',
+  /** Response contains post data */
   POST_DATA = 'postData',
 }
 
-/**
- * Post data structure returned from the API
- */
+/** Post data structure returned from the API */
 export interface PostData {
   author?: string;
   title?: string;
@@ -20,44 +26,40 @@ export interface PostData {
   selftext?: string;
 }
 
-/**
- * Comment data structure returned from the API
- */
+/** Comment data structure returned from the API */
 export interface CommentData {
   author?: string;
   body?: string;
   body_html?: string;
 }
 
-/**
- * Response structure for sending back to content scripts
- */
+/** Response structure for sending back to content scripts */
 interface SendResponseData {
   error?: string;
   commentsData?: CommentData[];
   postData?: PostData[];
 }
 
-/**
- * Message structure for comment requests
- */
+/** Message structure for comment requests */
 interface CommentRequestMessage {
   type: MsgType.COMMENTS_AUTHOR | MsgType.COMMENTS_BODY | MsgType.COMMENTS_ALL;
   commentIds: string[];
 }
 
-/**
- * Message structure for post requests
- */
+/** Message structure for post requests */
 interface PostRequestMessage {
   type: MsgType.MAIN_POST;
   postIdStr: string;
   fields?: string;
 }
 
+/** Union type for request messages */
 type RequestMessage = CommentRequestMessage | PostRequestMessage;
 
+/** Regex for sanitizing author text */
 const AUTHOR_REGEX = /[^\[\]\-\w]/g;
+
+/** Regex for sanitizing title text */
 const TITLE_REGEX = /[^\w\s.,;:!?'"()\[\]{}\-–—&@#$%*+=/\\<>^~`|•·°§©®™₹€£¥¢₽₩₪₴₦₱₸₼₺₿¤αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ]/gu;
 
 /**

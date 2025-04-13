@@ -31,7 +31,7 @@
     "@semantic-release/git": "^10.0.1",
     "@types/chrome": "^0.0.313",
     "@types/firefox": "^0.0.34",
-    "@types/node": "^22.14.0",
+    "@types/node": "^22.14.1",
     "adm-zip": "^0.5.16",
     "copy-webpack-plugin": "^13.0.0",
     "css-loader": "^7.1.2",
@@ -42,10 +42,10 @@
     "prettier": "^3.5.3",
     "semantic-release": "^24.2.3",
     "ts-loader": "^9.5.2",
-    "typescript": "^5.8.2",
-    "webpack": "^5.98.0",
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.5",
     "webpack-cli": "^6.0.1",
     "webpack-merge": "^6.0.1"
   },
-  "packageManager": "pnpm@10.7.1"
+  "packageManager": "pnpm@10.8.0"
 }

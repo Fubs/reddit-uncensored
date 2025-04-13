@@ -63,7 +63,7 @@ import { RedditContentProcessor } from './common';
       return !(await this.isCommentAuthorDeleted(commentNode)) && (await this.isCommentBodyDeleted(commentNode));
     }
 
-    showLoadingIndicator = async (commentId: string): Promise<void> => {
+    async showLoadingIndicator(commentId: string): Promise<void> {
       if (!this.idToUsertextNode.has(commentId)) return;
       const usertextNode = this.idToUsertextNode.get(commentId);
       if (usertextNode) {
@@ -82,7 +82,7 @@ import { RedditContentProcessor } from './common';
           container.replaceWith(loadingIndicator);
         }
       }
-    };
+    }
 
     async updateCommentNode(commentNode: HTMLElement, _id: string, author: string, usertext: string): Promise<void> {
       if (author) {
@@ -107,6 +107,7 @@ import { RedditContentProcessor } from './common';
     async updateCommentBody(commentNode: HTMLElement, dirtyUsertext: string): Promise<void> {
       const usertext = DOMPurify.sanitize(dirtyUsertext, {
         USE_PROFILES: { html: true },
+        IN_PLACE: true,
       });
       if (!usertext) return;
       const usertextNode = await this.getCommentUsertextNode(commentNode);
@@ -144,6 +145,7 @@ import { RedditContentProcessor } from './common';
     async updatePostBody(postNode: HTMLElement, dirtySelftextHtml: string | null): Promise<void> {
       const postSelftextHtml = DOMPurify.sanitize(dirtySelftextHtml || '', {
         USE_PROFILES: { html: true },
+        IN_PLACE: true,
       });
       if (!postSelftextHtml) return;
 
@@ -278,7 +280,7 @@ import { RedditContentProcessor } from './common';
         htmlContent === '<div class="md"><p>[deleted]</p></div>' || htmlContent === '<div class="md"><p>[removed]</p></div>' || htmlContent === ''
           ? '<div class="md"><div class="inline-block"><p class="undeleted">[not found in archive]</p></div></div>'
           : htmlContent;
-      newContent.innerHTML = DOMPurify.sanitize(correctedHtmlContent);
+      newContent.appendChild(DOMPurify.sanitize(correctedHtmlContent, { USE_PROFILES: { html: true }, IN_PLACE: true, RETURN_DOM_FRAGMENT: true }));
       fragment.appendChild(newContent);
       containerNode.replaceWith(fragment);
     }
@@ -384,29 +386,6 @@ import { RedditContentProcessor } from './common';
       actionRow.setAttribute('reddit-uncensored-processed', 'true');
     }
 
-    async addCollapseListener(): Promise<void> {
-      document.addEventListener('click', async event => {
-        const target = event.target as HTMLElement;
-        const commentElement = target.closest('shreddit-comment') as HTMLElement | null;
-        if (commentElement) {
-          const commentId = await this.getCommentId(commentElement);
-          if (commentId) {
-            setTimeout(() => {
-              const shadowRoot = commentElement.shadowRoot;
-              if (shadowRoot) {
-                const details = shadowRoot.querySelector('details');
-                if (details && !details.open) {
-                  this.userCollapsedComments.add(commentId);
-                } else {
-                  this.userCollapsedComments.delete(commentId);
-                }
-              }
-            }, 50);
-          }
-        }
-      });
-    }
-
     async getFirstCommentNode(): Promise<HTMLElement | null> {
       return document.querySelector('shreddit-comment-tree > shreddit-comment') as HTMLElement | null;
     }
@@ -415,7 +394,6 @@ import { RedditContentProcessor } from './common';
   const processor = new NewRedditContentProcessor();
   await processor.loadSettings();
   await processor.observeUrlChanges();
-  await processor.addCollapseListener();
   await processor.observeNewComments(document.body);
 })()
   .then(() => {})

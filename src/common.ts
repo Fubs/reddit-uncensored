@@ -1,38 +1,76 @@
 import { MsgType } from './background';
 
 export class RedditContentProcessor {
-  // Whether to automatically expand collapsed comments, will be set by value in browser.storage.local
+  /**
+   * Whether to automatically expand collapsed comments. This will be set by settings value in browser.storage.local
+   * @protected
+   */
   protected shouldAutoExpand: boolean | null = null;
 
-  // Mapping of comment IDs to their corresponding comment nodes
+  /**
+   * Mapping of comment IDs to their corresponding comment nodes
+   * @protected
+   */
   protected idToCommentNode: Map<string, HTMLElement> = new Map();
 
-  // Maps the main post's id to the post usertext node
+  /**
+   * Maps the main post's id to the post usertext node
+   * @protected
+   */
   protected idToUsertextNode: Map<string, HTMLElement> = new Map();
 
-  // Set of comment IDs scheduled to have missing data fetched
+  /**
+   * Set of comment IDs scheduled to have missing data fetched
+   * @protected
+   */
   protected scheduledCommentIds: Set<string> = new Set();
 
-  // Set of successfully processed comment ids
+  /**
+   * Set of successfully processed comment ids
+   * @protected
+   */
   protected processedCommentIds: Set<string> = new Set();
 
-  // Mapping of a comment node to its id
+  /**
+   * Mapping of a comment node to its id
+   * @protected
+   */
   protected cachedCommentIds: Map<Element, string> = new Map();
 
-  // Set of comment IDs that have been automatically expanded by this script
+  /**
+   * Set of comment IDs that have been automatically expanded by this script
+   * @protected
+   */
   protected autoExpandedCommentIds: Set<string> = new Set();
 
-  // Set of comment IDs that were manually collapsed by the user
-  protected userCollapsedComments: Set<string> = new Set();
+  /**
+   * Set of comment IDs that were expanded by this extension, or observed to already be expanded
+   * @protected
+   */
+  protected alreadyExpandedOnce: Set<string> = new Set();
 
-  // Regular expressions for URL pattern matching
+  /**
+   * Regular expressions for URL pattern matching
+   * @protected
+   */
   protected singleThreadUrlPattern: RegExp = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/\w+\/comments\/\w+\/\w+\/\w+\/$/;
+
+  /**
+   * Regular expressions for URL pattern matching
+   * @protected
+   */
   protected subredditUrlPattern: RegExp = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/(?!.*\/comments\/).*$/;
 
-  // Set of processed URLs
+  /**
+   * Set of processed URLs
+   * @protected
+   */
   protected processedUrls: Set<string> = new Set();
 
-  // Map of pending requests
+  /**
+   * Map of pending requests
+   * @protected
+   */
   protected pendingRequests: Map<
     string,
     {
@@ -41,7 +79,10 @@ export class RedditContentProcessor {
     }
   > = new Map();
 
-  // Sets of comment IDs that are missing a field and need to be fetched
+  /**
+   *  Sets of comment IDs that are missing a field and need to be fetched
+   *  @protected
+   */
   protected missingFieldBuckets: {
     author: Set<string>;
     body: Set<string>;
@@ -52,7 +93,10 @@ export class RedditContentProcessor {
     all: new Set(),
   };
 
-  // Strings that indicate a comment has been deleted
+  /**
+   *  Strings that indicate a comment has been deleted
+   *  @protected
+   */
   protected DELETED_TEXT: Set<string> = new Set([
     '[deleted]',
     '[deleted by user]',
@@ -70,10 +114,16 @@ export class RedditContentProcessor {
     'Loading from archive...',
   ]);
 
-  // Flag to track if a mutation was caused by user action
+  /**
+   *  Flag to track if a mutation was caused by user action
+   *  @protected
+   */
   protected isUserAction?: boolean;
 
-  // Cached post ID
+  /**
+   * Cached post ID
+   * @protected
+   */
   protected cachedPostId?: string | null;
 
   /**
@@ -163,9 +213,7 @@ export class RedditContentProcessor {
     }
   }
 
-  /**
-   * Process any pending requests for comments that now exist in the DOM
-   */
+  /** Process any pending requests for comments that now exist in the DOM */
   async processPendingRequests(): Promise<void> {
     if (this.pendingRequests.size === 0) return;
 
@@ -210,14 +258,14 @@ export class RedditContentProcessor {
     // Don't expand if the user manually collapsed this comment, unless its the first comment on a single-comment-thread page
     const isSingleThreadPage = await this.isSingleThreadPage();
     const firstCommentNode = await this.getFirstCommentNode();
-    const userCollapsed = this.userCollapsedComments.has(commentId);
 
-    if (!isSingleThreadPage) {
-      if (userCollapsed) {
+    if (this.alreadyExpandedOnce.has(commentId)) {
+      // on single-thread pages, always expand the root comment node
+      if (!isSingleThreadPage) {
+        return false;
+      } else if (firstCommentNode !== commentNode) {
         return false;
       }
-    } else if (firstCommentNode !== commentNode && userCollapsed) {
-      return false;
     }
 
     // Don't auto-expand if setting is disabled, or if the comment was already expanded once by this script.
@@ -226,14 +274,19 @@ export class RedditContentProcessor {
       (!this.shouldAutoExpand && (commentNode.hasAttribute('collapsed') || commentNode.classList.contains('collapsed'))) ||
       (this.autoExpandedCommentIds.has(commentId) && commentNode.getAttribute('depth') !== '0')
     ) {
-      return false;
+      // on single-thread pages, always expand the root comment node
+      if (isSingleThreadPage && commentNode !== firstCommentNode) {
+        return false;
+      }
     }
 
     // For new Reddit (shreddit-comment with shadow DOM)
     if (commentNode.tagName && commentNode.tagName.toLowerCase() === 'shreddit-comment' && (commentNode as HTMLElement).shadowRoot) {
       const details = (commentNode as HTMLElement).shadowRoot?.querySelector('details');
-      if (details && !details.open) {
-        details.open = true;
+      if (details) {
+        if (!details.open) {
+          details.open = true;
+        }
       }
     }
     // For old Reddit or other implementations
@@ -246,6 +299,7 @@ export class RedditContentProcessor {
       commentNode.classList.remove('collapsed');
       commentNode.classList.add('noncollapsed');
     }
+    this.alreadyExpandedOnce.add(commentId);
 
     if (this.shouldAutoExpand) {
       this.autoExpandedCommentIds.add(commentId);
@@ -289,9 +343,7 @@ export class RedditContentProcessor {
     });
   }
 
-  /**
-   * Fetch comments that are missing data
-   */
+  /** Schedule fetch of pending comments */
   async fetchPendingComments(): Promise<void> {
     if (this.missingFieldBuckets.author.size === 0 && this.missingFieldBuckets.body.size === 0 && this.missingFieldBuckets.all.size === 0) return;
 
@@ -299,9 +351,7 @@ export class RedditContentProcessor {
     let fetchCount = 0;
 
     const removeCommentIds = async (commentIds: string[]): Promise<void> => {
-      for (const id of commentIds) {
-        await this.removeCommentIdFromBuckets(id);
-      }
+      await Promise.all(commentIds.map(id => this.removeCommentIdFromBuckets(id)));
     };
 
     if (this.missingFieldBuckets.author.size > 0) {
@@ -334,16 +384,7 @@ export class RedditContentProcessor {
       });
   }
 
-  /**
-   * Schedule fetching of pending comments
-   */
-  async scheduleFetch(): Promise<void> {
-    await this.fetchPendingComments();
-  }
-
-  /**
-   * Process all existing comments on the page
-   */
+  /** Process all existing comments on the page */
   async processExistingComments(): Promise<void> {
     const commentNodes = await this.getCommentNodes();
 
@@ -353,7 +394,7 @@ export class RedditContentProcessor {
 
     // Process any comments that had pending API responses from previous navigation
     await this.processPendingRequests();
-    await this.scheduleFetch();
+    await this.fetchPendingComments();
   }
 
   /**
@@ -363,11 +404,6 @@ export class RedditContentProcessor {
   async processCommentNode(commentNode: HTMLElement): Promise<void> {
     const commentId = await this.getCommentId(commentNode);
     if (!commentId) return;
-
-    // Skip processing if this comment was manually collapsed by the user
-    if (this.userCollapsedComments.has(commentId)) {
-      return;
-    }
 
     if (!this.idToCommentNode.has(commentId)) {
       this.idToCommentNode.set(commentId, commentNode as HTMLElement);
@@ -409,17 +445,13 @@ export class RedditContentProcessor {
     this.scheduledCommentIds.add(commentId);
   }
 
-  /**
-   * Checks for new comments and processes them
-   */
+  /** Checks for new comments and processes them */
   async processNewComments(): Promise<void> {
     const commentNodes = await this.getNewCommentNodes();
     commentNodes.forEach(commentNode => this.processCommentNode(commentNode));
   }
 
-  /**
-   * Process the main post on the page
-   */
+  /** Process the main post on the page */
   async processMainPost(): Promise<void> {
     const postNode = await this.getPostNode();
     if (postNode) {
@@ -524,9 +556,7 @@ export class RedditContentProcessor {
     return missingFields;
   }
 
-  /**
-   * Get the post ID from the URL path
-   */
+  /** Get the post ID from the URL path */
   async getPostIdFromUrl(): Promise<string | null> {
     const match = window.location.pathname.match(/\/comments\/(\w+)/);
     if (match && match[1]) {
@@ -535,9 +565,7 @@ export class RedditContentProcessor {
     return null;
   }
 
-  /**
-   * Observe URL changes for client-side routing
-   */
+  /** Observe URL changes for client-side routing */
   async observeUrlChanges(): Promise<void> {
     let lastUrl = location.href;
 
@@ -547,7 +575,6 @@ export class RedditContentProcessor {
     // Observer function
     const urlChangeHandler = async () => {
       if (location.href !== lastUrl) {
-        console.log(`URL changed from ${lastUrl} to ${location.href}`);
         lastUrl = location.href;
 
         // Run the content script for the new page
@@ -575,7 +602,7 @@ export class RedditContentProcessor {
     const debounceProcess = this.debounce(() => {
       if (!this.isUserAction) {
         this.processNewComments();
-        this.scheduleFetch();
+        this.fetchPendingComments();
       }
       this.isUserAction = false;
     }, 30);
@@ -602,9 +629,7 @@ export class RedditContentProcessor {
     });
   }
 
-  /**
-   * Run the content script for the current page
-   */
+  /** Run the content script for the current page */
   async runContentScript(): Promise<void> {
     const currentUrl = window.location.href;
 
@@ -624,9 +649,7 @@ export class RedditContentProcessor {
     this.processedUrls.add(currentUrl);
   }
 
-  /**
-   * Reset state for a new page
-   */
+  /** Reset state for a new page */
   resetState(): void {
     this.processedCommentIds.clear();
     this.scheduledCommentIds.clear();
@@ -637,12 +660,10 @@ export class RedditContentProcessor {
     this.missingFieldBuckets.all.clear();
     this.autoExpandedCommentIds.clear();
     this.cachedCommentIds.clear();
-    // Don't clear userCollapsedComments as that should persist across pages
+    this.alreadyExpandedOnce.clear();
   }
 
-  /**
-   * Determine whether the current page is a single comment thread
-   */
+  /** Determine whether the current page is a single comment thread */
   async isSingleThreadPage(): Promise<boolean> {
     return this.singleThreadUrlPattern.test(window.location.href);
   }
@@ -657,16 +678,12 @@ export class RedditContentProcessor {
     throw new Error('showLoadingIndicator() must be implemented by subclass');
   }
 
-  /**
-   * Finds all comment nodes
-   */
+  /** Finds all comment nodes */
   async getCommentNodes(): Promise<NodeListOf<HTMLElement>> {
     throw new Error('getCommentNodes() must be implemented by subclass');
   }
 
-  /**
-   * Finds any new comments that have not yet been processed
-   */
+  /** Finds any new comments that have not yet been processed */
   async getNewCommentNodes(): Promise<NodeListOf<HTMLElement>> {
     throw new Error('getNewCommentNodes() must be implemented by subclass');
   }
@@ -941,14 +958,6 @@ export class RedditContentProcessor {
    */
   async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<void> {
     throw new Error('injectCustomSlotStyles() must be implemented by subclass');
-  }
-
-  /**
-   * Add listener to handle user collapsed comments and track them in the userCollapsedComments set.
-   * @returns {Promise<void>}
-   */
-  async addCollapseListener(): Promise<void> {
-    throw new Error('addCollapseListener() must be implemented by subclass');
   }
 
   /**

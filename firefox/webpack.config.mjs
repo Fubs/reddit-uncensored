@@ -12,7 +12,6 @@ const config = {
     oldRedditContentScript: './src/oldRedditContentScript.ts',
     background: './src/background.ts',
     options: './src/options.ts',
-    //common: './src/common.ts',
   },
   module: {
     rules: [

@@ -6,13 +6,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const config = {
+export const config = {
   entry: {
     newRedditContentScript: './src/newRedditContentScript.ts',
     oldRedditContentScript: './src/oldRedditContentScript.ts',
     background: './src/background.ts',
     options: './src/options.ts',
-    //common: './src/common.ts',
   },
   module: {
     rules: [

@@ -1,6 +1,7 @@
 attic/
 
 node_modules/
+dist/
 
 firefox/node_modules/
 firefox/node_modules

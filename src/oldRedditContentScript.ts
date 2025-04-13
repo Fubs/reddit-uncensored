@@ -118,9 +118,8 @@ import { RedditContentProcessor } from './common';
       const usertextNode = commentNode.querySelector('.md') as HTMLElement;
       if (usertextNode && (await this.isCommentBodyDeleted(commentNode))) {
         if (dirtyUsertext === '<div class="md"><p>[deleted]</p></div>') dirtyUsertext = '<div class="md"><p>[not found in archive]</p></div>';
-        const sanitizedHtml = DOMPurify.sanitize(dirtyUsertext);
 
-        await this.replaceContentBody(usertextNode, sanitizedHtml, {
+        await this.replaceContentBody(usertextNode, DOMPurify.sanitize(dirtyUsertext || '', { USE_PROFILES: { html: true }, IN_PLACE: true }), {
           display: 'inline-block',
           padding: '.1rem .2rem .1rem .2rem',
           width: 'fit-content',
@@ -271,13 +270,9 @@ import { RedditContentProcessor } from './common';
         await this.replaceExpandoButton(brokenExpandoBtn as HTMLElement, replacementId);
       }
 
-      const sanitizedHtml = DOMPurify.sanitize(dirtySelftextHtml || '', {
-        USE_PROFILES: { html: true },
-      });
-
       await this.replaceContentBody(
         replaceTarget,
-        sanitizedHtml,
+        DOMPurify.sanitize(dirtySelftextHtml || '', { USE_PROFILES: { html: true }, IN_PLACE: true }),
         {
           padding: '.3rem',
           border: '2px solid #e85646',
@@ -472,27 +467,6 @@ import { RedditContentProcessor } from './common';
       flatListButtons.appendChild(DOMPurify.sanitize(li, { USE_PROFILES: { html: true }, IN_PLACE: true, ADD_ATTR: ['target'] }) as Node);
     }
 
-    async addCollapseListener(): Promise<void> {
-      document.addEventListener('click', async event => {
-        const target = event.target as HTMLElement;
-        if (target.classList.contains('expand') || target.closest('a.expand')) {
-          const commentNode = target.closest('.thing.comment') as HTMLElement;
-          if (commentNode) {
-            const commentId = await this.getCommentId(commentNode);
-            if (commentId) {
-              setTimeout(() => {
-                if (commentNode.classList.contains('collapsed')) {
-                  this.userCollapsedComments.add(commentId);
-                } else {
-                  this.userCollapsedComments.delete(commentId);
-                }
-              }, 50);
-            }
-          }
-        }
-      });
-    }
-
     async getFirstCommentNode(): Promise<HTMLElement | null> {
       return document.querySelector('div.commentarea > div.sitetable > div.comment') as HTMLElement | null;
     }
@@ -501,7 +475,6 @@ import { RedditContentProcessor } from './common';
   const processor = new OldRedditContentProcessor();
   await processor.loadSettings();
   await processor.observeUrlChanges();
-  await processor.addCollapseListener();
   await processor.observeNewComments(document.body);
 })()
   .then(() => {})
