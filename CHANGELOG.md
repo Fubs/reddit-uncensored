@@ -1,4 +1,13 @@
-## [1.2.2](https://github.com/Fubs/reddit-uncensored/compare/v1.2.1...v1.2.2) (2025-04-03)
+## [1.2.2-dev.3](https://github.com/Fubs/reddit-uncensored/compare/v1.2.2-dev.2...v1.2.2-dev.3) (2025-04-13)
+
+
+### Bug Fixes
+
+* ensure comments are auto-expanded only once ([#1](https://github.com/Fubs/reddit-uncensored/issues/1)) ([10645bf](https://github.com/Fubs/reddit-uncensored/commit/10645bfa861d900f6c6701257354daf4a6c5dc77))
+
+## [1.2.2-dev.2](https://github.com/Fubs/reddit-uncensored/compare/v1.2.2-dev.1...v1.2.2-dev.2) (2025-04-04)
+
+## [1.2.2-dev.1](https://github.com/Fubs/reddit-uncensored/compare/v1.2.1...v1.2.2-dev.1) (2025-04-03)
 
 
 ### Bug Fixes

@@ -1,17 +1,26 @@
-import CopyWebpackPlugin from 'copy-webpack-plugin'
-import Dotenv from 'dotenv-webpack'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import Dotenv from 'dotenv-webpack';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const config = {
   entry: {
-    newRedditContentScript: './src/newRedditContentScript.js',
-    oldRedditContentScript: './src/oldRedditContentScript.js',
-    background: './src/background.js',
-    options: './src/options.js',
+    newRedditContentScript: './src/newRedditContentScript.ts',
+    oldRedditContentScript: './src/oldRedditContentScript.ts',
+    background: './src/background.ts',
+    options: './src/options.ts',
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -35,8 +44,9 @@ const config = {
     new Dotenv({ path: './.env' }),
   ],
   resolve: {
+    extensions: ['.tsx', '.ts', '.js'],
     modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
   },
-}
+};
 
-export default config
+export default config;
