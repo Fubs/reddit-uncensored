@@ -428,7 +428,6 @@ export class RedditContentProcessor {
     if (!isBodyDeleted && !isAuthorDeleted) return;
 
     // Add loading indicator and metadata button to comments with missing data
-    await this.addMetadataButton(commentNode);
     if (isBodyDeleted) {
       await this.showLoadingIndicator(commentId);
     }

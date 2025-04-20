@@ -91,6 +91,9 @@ import { RedditContentProcessor } from './common';
       if (usertext) {
         await this.updateCommentBody(commentNode, usertext);
       }
+      if (usertext || author) {
+        await this.addMetadataButton(commentNode);
+      }
       commentNode.setAttribute('undeleted', 'true');
       commentNode.removeAttribute('deleted');
       commentNode.removeAttribute('is-comment-deleted');
@@ -303,14 +306,14 @@ import { RedditContentProcessor } from './common';
         return;
       }
 
-      const actionRow = commentNode.querySelector('shreddit-comment-action-row') as HTMLElement | null;
-      if (!actionRow || !actionRow.shadowRoot) {
-        console.warn("Couldn't find action row for comment", commentId);
+      const actionRow = commentNode.querySelector('div[slot="actionRow"]')?.querySelector('[slot="actionRow"]');
+      if (!actionRow) {
+        console.warn("Couldn't find place to put metadata button for comment", commentId);
         return;
       }
 
       const customSlotName = 'archive-data-button';
-      await this.injectCustomSlotStyles(actionRow, customSlotName);
+      await this.injectCustomSlotStyles(actionRow as unknown as HTMLElement, customSlotName);
 
       // noinspection CssUnresolvedCustomProperty
       const buttonHTML = `
@@ -327,7 +330,7 @@ import { RedditContentProcessor } from './common';
                 </svg>
               </span>
               <span>Open archive data</span>
-            </span>        
+            </span>
           </button>
         </a>`;
 
@@ -344,9 +347,9 @@ import { RedditContentProcessor } from './common';
     }
 
     async injectCustomSlotStyles(actionRow: HTMLElement, customSlotName: string): Promise<void> {
-      if (actionRow.hasAttribute('reddit-uncensored-processed')) {
-        return;
-      }
+      // if (actionRow && actionRow.hasAttribute('reddit-uncensored-processed')) {
+      //   return;
+      // }
 
       // find the overflow menu, and modify its order to be higher than the new slot
       const overflowMenu = actionRow.querySelector('[slot="overflow"]') as HTMLElement | null;
