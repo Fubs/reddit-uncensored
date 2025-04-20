@@ -347,10 +347,13 @@ import { RedditContentProcessor } from './common';
     }
 
     async injectCustomSlotStyles(actionRow: HTMLElement, customSlotName: string): Promise<void> {
+<<<<<<< HEAD
       // if (actionRow && actionRow.hasAttribute('reddit-uncensored-processed')) {
       //   return;
       // }
 
+=======
+>>>>>>> df95299 (fix: add open-archive-data button later so comments have time to load)
       // find the overflow menu, and modify its order to be higher than the new slot
       const overflowMenu = actionRow.querySelector('[slot="overflow"]') as HTMLElement | null;
       if (overflowMenu) {
