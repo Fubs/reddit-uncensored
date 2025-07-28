@@ -26,7 +26,7 @@ import { RedditContentProcessor } from './common';
     }
 
     async getCommentUsertextNode(commentNode: HTMLElement): Promise<HTMLElement | null> {
-      return commentNode.querySelector('div.md > div.inline-block > p') as HTMLElement | null;
+      return commentNode.querySelector('div[slot="commentMeta"] + div > div.inline-block > p') as HTMLElement | null;
     }
 
     async getCommentAuthorNode(commentNode: HTMLElement): Promise<HTMLElement | null> {
@@ -44,7 +44,7 @@ import { RedditContentProcessor } from './common';
       } else {
         const usertextNode = await this.getCommentUsertextNode(commentNode);
         if (usertextNode) {
-          return this.DELETED_TEXT.has(usertextNode.textContent || '');
+          return this.DELETED_TEXT.has((usertextNode.textContent || '').trim());
         }
 
         return false;
@@ -52,7 +52,7 @@ import { RedditContentProcessor } from './common';
     }
 
     async isCommentAuthorDeleted(commentNode: HTMLElement): Promise<boolean> {
-      return this.DELETED_TEXT.has(commentNode.getAttribute('author') || '') || commentNode.getAttribute('is-author-deleted') === 'true';
+      return this.DELETED_TEXT.has((commentNode.getAttribute('author') || '').trim()) || commentNode.getAttribute('is-author-deleted') === 'true';
     }
 
     async isOnlyCommentAuthorDeleted(commentNode: HTMLElement): Promise<boolean> {
@@ -219,7 +219,7 @@ import { RedditContentProcessor } from './common';
     async isPostTitleDeleted(postNode: HTMLElement): Promise<boolean> {
       const postTitle = postNode.getAttribute('post-title');
       if (postTitle) {
-        return this.DELETED_TEXT.has(postTitle);
+        return this.DELETED_TEXT.has(postTitle.trim());
       }
       return false;
     }
@@ -234,10 +234,10 @@ import { RedditContentProcessor } from './common';
     async isPostAuthorDeleted(postNode: HTMLElement): Promise<boolean> {
       const postAuthorNode = postNode.querySelector('faceplate-tracker[noun="user_profile"]');
 
-      if (this.DELETED_TEXT.has(postNode.getAttribute('author') || '')) {
+      if (this.DELETED_TEXT.has((postNode.getAttribute('author') || '').trim())) {
         return true;
       } else if (postAuthorNode) {
-        return this.DELETED_TEXT.has(postAuthorNode.textContent || '');
+        return this.DELETED_TEXT.has((postAuthorNode.textContent || '').trim());
       }
 
       return false;
@@ -306,30 +306,38 @@ import { RedditContentProcessor } from './common';
         return;
       }
 
-      const actionRow = commentNode.querySelector('div[slot="actionRow"]')?.querySelector('[slot="actionRow"]');
+      const actionRow = commentNode.querySelector('[slot="actionRow"]');
       if (!actionRow) {
         console.warn("Couldn't find place to put metadata button for comment", commentId);
         return;
       }
 
-      const customSlotName = 'archive-data-button';
-      await this.injectCustomSlotStyles(actionRow as unknown as HTMLElement, customSlotName);
+      const CUSTOM_SLOT_NAME = 'archive-data-button';
+      const BUTTON_TEXT = 'Open archive data';
 
-      // noinspection CssUnresolvedCustomProperty
+      await this.injectCustomSlotStyles(actionRow as unknown as HTMLElement, CUSTOM_SLOT_NAME);
+
+      const getExternalLinkIcon = () => `
+        <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 22 22">
+          <path
+            d="M5 12V6C5 5.44772 5.44772 5 6 5H18C18.5523 5 19 5.44772 19 6V18C19 18.5523 18.5523 19 18 19H12M8.11111 12H12M12 12V15.8889M12 12L5 19"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke="var(--button-color-text)" />
+        </svg>
+      `;
+
       const buttonHTML = `
-        <a id="archive-data-button-${commentId}" href="${archiveUrl}" target="_blank" rel="noopener noreferrer" slot="${customSlotName}" class="archive-data-button">
-          <button style="height: var(--size-button-sm-h); font: var(--font-button-sm)" class="button border-md text-12 button-plain-weak inline-flex pr-sm">
-            <span style="" class="flex items-center gap-2xs">
-              <span class="self-end">
-                <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 22 22">
-                  <path
-                   d="M5 12V6C5 5.44772 5.44772 5 6 5H18C18.5523 5 19 5.44772 19 6V18C19 18.5523 18.5523 19 18 19H12M8.11111 12H12M12 12V15.8889M12 12L5 19"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke="var(--button-color-text)" />
-                </svg>
-              </span>
-              <span>Open archive data</span>
+        <a id="archive-data-button-${commentId}" 
+           href="${archiveUrl}" 
+           target="_blank" 
+           rel="noopener noreferrer" 
+           slot="${CUSTOM_SLOT_NAME}" 
+           class="archive-data-button">
+          <button class="button border-md text-12 button-plain-weak inline-flex pr-sm archive-button">
+            <span class="flex items-center gap-2xs">
+              <span class="self-end">${getExternalLinkIcon()}</span>
+              <span>${BUTTON_TEXT}</span>
             </span>
           </button>
         </a>`;
@@ -342,18 +350,26 @@ import { RedditContentProcessor } from './common';
         ADD_ATTR: ['target', 'slot'],
         IN_PLACE: true,
       });
+
       // Append the new button to the action row
       actionRow.appendChild(newButton as Node);
+
+      // Add a class for styles instead of inline styles
+      const styleSheet = document.createElement('style');
+      styleSheet.textContent = `
+        .archive-button {
+          height: var(--size-button-sm-h);
+          font: var(--font-button-sm);
+        }
+      `;
+      document.head.appendChild(styleSheet);
     }
 
     async injectCustomSlotStyles(actionRow: HTMLElement, customSlotName: string): Promise<void> {
-<<<<<<< HEAD
       // if (actionRow && actionRow.hasAttribute('reddit-uncensored-processed')) {
       //   return;
       // }
 
-=======
->>>>>>> df95299 (fix: add open-archive-data button later so comments have time to load)
       // find the overflow menu, and modify its order to be higher than the new slot
       const overflowMenu = actionRow.querySelector('[slot="overflow"]') as HTMLElement | null;
       if (overflowMenu) {
