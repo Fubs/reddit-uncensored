@@ -9,8 +9,8 @@
     "build": "webpack --mode=production --config webpack.config.mjs",
     "format": "prettier --write --ignore-path ../.gitignore --ignore-unknown \"{,!(node_modules)/**/}*.{html,css,js,mjs,ts,json}\"",
     "clean": "rm -rf dist/* web-ext-artifacts/* reddit-uncensored-*.zip ./*.tgz dist.zip",
-    "lint": "web-ext lint -s dist",
-    "pack": "web-ext build -s dist --overwrite-dest",
+    "lint": "pnpx web-ext lint -s dist",
+    "pack": "pnpx web-ext build -s dist --overwrite-dest",
     "zip": "zip -r dist-firefox.zip dist/"
   }
 }
