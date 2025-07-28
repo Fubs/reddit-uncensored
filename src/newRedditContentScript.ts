@@ -313,9 +313,14 @@ import { RedditContentProcessor } from './common';
       }
 
       const CUSTOM_SLOT_NAME = 'archive-data-button';
-      const BUTTON_TEXT = 'Open archive data';
 
-      await this.injectCustomSlotStyles(actionRow as unknown as HTMLElement, CUSTOM_SLOT_NAME);
+      const customSlotInjectResult = await this.injectCustomSlotStyles(actionRow as unknown as HTMLElement, CUSTOM_SLOT_NAME);
+      if (!customSlotInjectResult) {
+        console.warn('Failed to inject custom slot styles for comment', commentId, 'skipping open-in-archive button injection...');
+        return;
+      }
+
+      const BUTTON_TEXT = 'Open archive data';
 
       const getExternalLinkIcon = () => `
         <svg fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 22 22">
@@ -365,17 +370,8 @@ import { RedditContentProcessor } from './common';
       document.head.appendChild(styleSheet);
     }
 
-    async injectCustomSlotStyles(actionRow: HTMLElement, customSlotName: string): Promise<void> {
-      // if (actionRow && actionRow.hasAttribute('reddit-uncensored-processed')) {
-      //   return;
-      // }
-
+    async injectCustomSlotStyles(actionRow: HTMLElement, customSlotName: string): Promise<boolean> {
       // find the overflow menu, and modify its order to be higher than the new slot
-      const overflowMenu = actionRow.querySelector('[slot="overflow"]') as HTMLElement | null;
-      if (overflowMenu) {
-        overflowMenu.style.order = '201';
-      }
-
       const styleElement = document.createElement('style');
       styleElement.textContent = `
         ::slotted([slot="${customSlotName}"]) {
@@ -393,19 +389,20 @@ import { RedditContentProcessor } from './common';
       const slotElement = document.createElement('slot');
       slotElement.name = customSlotName;
 
-      const shareSlot = actionRow.shadowRoot?.querySelector('slot[name="comment-share"]');
-      const actionItemsContainer = actionRow.shadowRoot?.querySelector('.flex.items-center.max-h-2xl.shrink');
+      const srShareSlot = actionRow.shadowRoot?.querySelector('slot[name="comment-share"]');
+      const srActionItemsContainer = actionRow.shadowRoot?.querySelector('.flex.items-center.shrink');
 
-      if (shareSlot) {
-        shareSlot.after(slotElement);
-      } else if (actionItemsContainer) {
-        actionItemsContainer.appendChild(slotElement); // Append to the end of the action items container as fallback
+      if (srShareSlot) {
+        srShareSlot.after(slotElement);
+      } else if (srActionItemsContainer) {
+        srActionItemsContainer.appendChild(slotElement); // Append to the end of the action items container as fallback
       } else {
         console.warn("Couldn't find a suitable place to insert archive button slot");
-        return;
+        return false;
       }
 
       actionRow.setAttribute('reddit-uncensored-processed', 'true');
+      return true;
     }
 
     async getFirstCommentNode(): Promise<HTMLElement | null> {

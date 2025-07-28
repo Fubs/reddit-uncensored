@@ -953,9 +953,9 @@ export class RedditContentProcessor {
    * Injects CSS to handle our custom slot in the action row's shadow DOM
    * @param {Element} _actionRow - The action row element
    * @param {string} _customSlotName - Our custom slot name
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} - True if successful, false if failed
    */
-  async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<void> {
+  async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<boolean> {
     throw new Error('injectCustomSlotStyles() must be implemented by subclass');
   }
 
