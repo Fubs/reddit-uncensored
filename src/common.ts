@@ -62,6 +62,12 @@ export class RedditContentProcessor {
   protected subredditUrlPattern: RegExp = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/(?!.*\/comments\/).*$/;
 
   /**
+   * Regular expressions for URL pattern matching
+   * @protected
+   */
+  protected commentsPageUrlPattern: RegExp = /^https?:\/\/(old\.|www\.)?reddit\.com\/r\/.*\/comments\/.*$/;
+
+  /**
    * Set of processed URLs
    * @protected
    */
@@ -635,8 +641,9 @@ export class RedditContentProcessor {
     // Reset state for the new page context
     this.resetState();
 
-    // Skip if this is a subreddit page
-    if (this.subredditUrlPattern.test(currentUrl)) {
+    // Skip if this is not a comments page
+    if (this.subredditUrlPattern.test(currentUrl) || !this.commentsPageUrlPattern.test(currentUrl)) {
+      console.debug('Skipping url', currentUrl);
       return;
     }
 
@@ -953,7 +960,7 @@ export class RedditContentProcessor {
    * Injects CSS to handle our custom slot in the action row's shadow DOM
    * @param {Element} _actionRow - The action row element
    * @param {string} _customSlotName - Our custom slot name
-   * @returns {Promise<boolean>} - True if successful, false if failed
+   * @returns {Promise<void>}
    */
   async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<boolean> {
     throw new Error('injectCustomSlotStyles() must be implemented by subclass');
