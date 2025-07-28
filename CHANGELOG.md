@@ -1,3 +1,13 @@
+## [1.2.4](https://github.com/Fubs/reddit-uncensored/compare/v1.2.3...v1.2.4) (2025-07-28)
+
+
+### Bug Fixes
+
+* add open-archive-data button later so comments have time to load ([0fb807f](https://github.com/Fubs/reddit-uncensored/commit/0fb807fab75b01a2053a3774761509036abd0714))
+* add open-archive-data button later so comments have time to load ([4f2bfce](https://github.com/Fubs/reddit-uncensored/commit/4f2bfce18c85fae9d1159989fec5ccd0daa9c50f))
+* fix deleted content detection and open-in-archive button injection ([8b38ea7](https://github.com/Fubs/reddit-uncensored/commit/8b38ea7d772078ac9170714e62a35489023112b2))
+* use pnpx to run web-ext script for compatibility ([6055382](https://github.com/Fubs/reddit-uncensored/commit/60553827e0f775e17a70253d08389383f025e19d))
+
 ## [1.2.3](https://github.com/Fubs/reddit-uncensored/compare/v1.2.2...v1.2.3) (2025-04-13)
 
 
