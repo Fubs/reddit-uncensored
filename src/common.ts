@@ -962,7 +962,7 @@ export class RedditContentProcessor {
    * @param {string} _customSlotName - Our custom slot name
    * @returns {Promise<void>}
    */
-  async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<boolean> {
+  async injectCustomSlotStyles(_actionRow: HTMLElement, _customSlotName: string): Promise<void> {
     throw new Error('injectCustomSlotStyles() must be implemented by subclass');
   }
 
