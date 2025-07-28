@@ -1,3 +1,12 @@
+## [1.2.5](https://github.com/Fubs/reddit-uncensored/compare/v1.2.4...v1.2.5) (2025-07-28)
+
+
+### Bug Fixes
+
+* add comments page URL matching and improve page filtering logic ([366c8cc](https://github.com/Fubs/reddit-uncensored/commit/366c8ccc7f295dce4e3a2da8f311f1fd8d7b304a))
+* handle custom slot injection failure gracefully for open-archive-data button ([48afe93](https://github.com/Fubs/reddit-uncensored/commit/48afe9358389afac9ede7535b263bca3f442062e))
+* update injectCustomSlotStyles to return boolean instead of void ([5ccb280](https://github.com/Fubs/reddit-uncensored/commit/5ccb280eb5a89b464ce48d5400f8368e07e16ab6))
+
 ## [1.2.4](https://github.com/Fubs/reddit-uncensored/compare/v1.2.3...v1.2.4) (2025-07-28)
 
 
