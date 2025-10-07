@@ -113,6 +113,8 @@ export class RedditContentProcessor {
     'Comment removed by moderator',
     'Comment deleted by user',
     'Comment removed by Reddit',
+    'Comment has been removed',
+    'Post has been removed',
     'Deleted by user',
     'Removed by moderator',
     'Removed by Reddit',
