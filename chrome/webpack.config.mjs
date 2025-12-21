@@ -8,10 +8,10 @@ const __dirname = path.dirname(__filename);
 
 export const config = {
   entry: {
-    newRedditContentScript: './src/newRedditContentScript.ts',
-    oldRedditContentScript: './src/oldRedditContentScript.ts',
-    background: './src/background.ts',
-    options: './src/options.ts',
+    newRedditContentScript: '../src/newRedditContentScript.ts',
+    oldRedditContentScript: '../src/oldRedditContentScript.ts',
+    background: '../src/background.ts',
+    options: '../src/options.ts',
   },
   module: {
     rules: [
@@ -34,7 +34,7 @@ export const config = {
       patterns: [
         { from: './manifest.json', to: 'manifest.json' },
         { from: path.resolve(__dirname, '../assets/icons'), to: 'icons' },
-        { from: path.resolve(__dirname, 'src/options.html'), to: 'options.html' },
+        { from: path.resolve(__dirname, '../src/options.html'), to: 'options.html' },
       ],
     }),
     new Dotenv({ path: './.env' }),

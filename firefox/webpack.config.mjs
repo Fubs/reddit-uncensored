@@ -8,10 +8,10 @@ const __dirname = path.dirname(__filename);
 
 const config = {
   entry: {
-    newRedditContentScript: './src/newRedditContentScript.ts',
-    oldRedditContentScript: './src/oldRedditContentScript.ts',
-    background: './src/background.ts',
-    options: './src/options.ts',
+    newRedditContentScript: '../src/newRedditContentScript.ts',
+    oldRedditContentScript: '../src/oldRedditContentScript.ts',
+    background: '../src/background.ts',
+    options: '../src/options.ts',
   },
   module: {
     rules: [
@@ -38,7 +38,7 @@ const config = {
           from: path.resolve(__dirname, '../assets/icons/favicon.ico'),
           to: 'favicon.ico',
         },
-        { from: path.resolve(__dirname, 'src/options.html'), to: 'options.html' },
+        { from: path.resolve(__dirname, '../src/options.html'), to: 'options.html' },
       ],
     }),
     new Dotenv({ path: './.env' }),
