@@ -608,8 +608,7 @@ export class RedditContentProcessor {
   async observeNewComments(observeTarget: Node): Promise<void> {
     const debounceProcess = this.debounce(() => {
       if (!this.isUserAction) {
-        this.processNewComments();
-        this.fetchPendingComments();
+        this.addShowOriginalButtonsToNewComments();
       }
       this.isUserAction = false;
     }, 30);
@@ -651,7 +650,7 @@ export class RedditContentProcessor {
 
     // Process the page content
     await this.processMainPost();
-    await this.processExistingComments();
+    await this.addShowOriginalButtonsToNewComments();
 
     // Mark this URL as processed
     this.processedUrls.add(currentUrl);
@@ -975,5 +974,12 @@ export class RedditContentProcessor {
    */
   async getFirstCommentNode(): Promise<HTMLElement | null> {
     throw new Error('getFirstCommentNode() must be implemented by subclass');
+  }
+
+  /**
+   * Add "Show original" buttons to all comments that don't have one yet
+   */
+  async addShowOriginalButtonsToNewComments(): Promise<void> {
+    throw new Error('addShowOriginalButtonsToNewComments() must be implemented by subclass');
   }
 }

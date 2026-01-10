@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { MsgType } from './background';
 import { RedditContentProcessor } from './common';
 
 (async function () {
@@ -113,12 +114,22 @@ import { RedditContentProcessor } from './common';
         IN_PLACE: true,
       });
       if (!usertext) return;
-      const usertextNode = await this.getCommentUsertextNode(commentNode);
-      if (!usertextNode) return;
 
-      const usertextContainer = usertextNode.parentElement?.parentElement;
-      if (usertextContainer) {
-        await this.replaceContentBody(usertextContainer, usertext);
+      // Try the normal selector first
+      const usertextNode = await this.getCommentUsertextNode(commentNode);
+      if (usertextNode) {
+        const usertextContainer = usertextNode.parentElement?.parentElement;
+        if (usertextContainer) {
+          await this.replaceContentBody(usertextContainer, usertext);
+          return;
+        }
+      }
+
+      // Fallback for deleted comments: find the .md container directly
+      // Deleted comments don't have slot="comment", so we find .md div that's not for editing
+      const mdContainer = commentNode.querySelector('div.md:not([slot="comment-edit"])') as HTMLElement | null;
+      if (mdContainer) {
+        await this.replaceContentBody(mdContainer, usertext);
       }
     }
 
@@ -407,6 +418,134 @@ import { RedditContentProcessor } from './common';
 
     async getFirstCommentNode(): Promise<HTMLElement | null> {
       return document.querySelector('shreddit-comment-tree > shreddit-comment') as HTMLElement | null;
+    }
+
+    async addShowOriginalButton(commentNode: HTMLElement): Promise<void> {
+      const commentId = await this.getCommentId(commentNode);
+      if (!commentId) return;
+
+      // Skip if button already exists
+      if (commentNode.hasAttribute('has-show-original-btn')) return;
+
+      const actionRow = commentNode.querySelector('[slot="actionRow"]');
+      if (!actionRow) return;
+
+      // Move Award button to overflow menu
+      await this.moveAwardToOverflowMenu(commentNode, actionRow as HTMLElement);
+
+      // Inject slot styles into shadow DOM with low order to appear where Award was
+      const SLOT_NAME = 'show-original-slot';
+      const slotInjected = await this.injectShowOriginalSlot(actionRow as HTMLElement, SLOT_NAME);
+      if (!slotInjected) return;
+
+      // Create button matching Reddit's style
+      const buttonHTML = `
+        <button slot="${SLOT_NAME}"
+                class="button border-md text-12 button-plain-weak inline-flex items-center px-sm show-original-btn"
+                style="height: var(--size-button-sm-h); font: var(--font-button-sm);">
+          <span>Show original</span>
+        </button>
+      `;
+
+      const parser = new DOMParser();
+      const button = parser.parseFromString(buttonHTML, 'text/html').body.firstChild as HTMLElement;
+
+      // Add click handler
+      button.onclick = async () => {
+        await this.fetchAndShowOriginal(commentNode, commentId, button);
+      };
+
+      actionRow.appendChild(button);
+      commentNode.setAttribute('has-show-original-btn', 'true');
+    }
+
+    async moveAwardToOverflowMenu(commentNode: HTMLElement, actionRow: HTMLElement): Promise<void> {
+      // Find the Award button - it's typically in a slot named "award" or contains Award text
+      const awardButton = actionRow.querySelector('[slot="award"]') ||
+                          actionRow.querySelector('award-button') ||
+                          actionRow.querySelector('shreddit-award-button');
+
+      if (!awardButton) return;
+
+      // Find the overflow menu
+      const overflowMenu = commentNode.querySelector('shreddit-overflow-menu');
+      if (!overflowMenu) return;
+
+      // Hide the Award button from the main action row
+      (awardButton as HTMLElement).style.display = 'none';
+    }
+
+    async injectShowOriginalSlot(actionRow: HTMLElement, customSlotName: string): Promise<boolean> {
+      // Inject slot with order 50 to appear before other custom buttons (order 200)
+      // This should place it roughly where Award was
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        ::slotted([slot="${customSlotName}"]) {
+          order: 50;
+          display: inline-flex;
+        }
+      `;
+
+      actionRow.shadowRoot?.appendChild(styleElement);
+
+      const slotElement = document.createElement('slot');
+      slotElement.name = customSlotName;
+
+      // Try to insert after share slot, or find award slot position
+      const srShareSlot = actionRow.shadowRoot?.querySelector('slot[name="comment-share"]');
+      const srAwardSlot = actionRow.shadowRoot?.querySelector('slot[name="award"]');
+      const srActionItemsContainer = actionRow.shadowRoot?.querySelector('.flex.items-center.shrink');
+
+      if (srAwardSlot) {
+        // Insert right after the award slot (which we're hiding)
+        srAwardSlot.after(slotElement);
+      } else if (srShareSlot) {
+        srShareSlot.after(slotElement);
+      } else if (srActionItemsContainer) {
+        srActionItemsContainer.appendChild(slotElement);
+      } else {
+        console.warn("Couldn't find a suitable place to insert show-original button slot");
+        return false;
+      }
+
+      return true;
+    }
+
+    async fetchAndShowOriginal(commentNode: HTMLElement, commentId: string, button: HTMLElement): Promise<void> {
+      // Show loading state
+      const buttonSpan = button.querySelector('span');
+      if (buttonSpan) buttonSpan.textContent = 'Loading...';
+      (button as HTMLButtonElement).disabled = true;
+
+      try {
+        // Fetch from Arctic Shift via background script
+        const response = await chrome.runtime.sendMessage({
+          type: MsgType.COMMENTS_ALL,
+          commentIds: [commentId],
+        });
+
+        if (response?.commentsData?.[0]) {
+          const data = response.commentsData[0];
+
+          // Display the original content using existing method
+          await this.updateCommentNode(commentNode, commentId, data.author, data.body_html);
+
+          if (buttonSpan) buttonSpan.textContent = 'Original shown';
+        } else {
+          if (buttonSpan) buttonSpan.textContent = 'Not found';
+        }
+      } catch (error) {
+        console.error('Error fetching original:', error);
+        if (buttonSpan) buttonSpan.textContent = 'Error - Retry';
+        (button as HTMLButtonElement).disabled = false;
+      }
+    }
+
+    async addShowOriginalButtonsToNewComments(): Promise<void> {
+      const comments = document.querySelectorAll('shreddit-comment:not([has-show-original-btn])');
+      for (const comment of Array.from(comments)) {
+        await this.addShowOriginalButton(comment as HTMLElement);
+      }
     }
   }
 
