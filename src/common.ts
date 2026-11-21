@@ -152,7 +152,7 @@ export class RedditContentProcessor {
    * @param redditId - The Reddit ID to validate
    */
   async isValidRedditId(redditId: string): Promise<boolean> {
-    return /^[a-zA-Z0-9]{1,7}$/.test(redditId);
+    return /^[a-zA-Z0-9]{1,13}$/.test(redditId);
   }
 
   /**
